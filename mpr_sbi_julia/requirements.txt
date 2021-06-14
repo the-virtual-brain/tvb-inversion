@@ -1,0 +1,8 @@
+julia
+matplotlib
+numba
+numpy
+sbi
+scikit-learn
+scipy
+torch
