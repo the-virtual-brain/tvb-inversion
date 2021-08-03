@@ -16,7 +16,7 @@ from scipy import signal
 from scipy.stats import kurtosis
 from scipy.stats import moment
 from scipy.stats import skew
-from src import analysis, simulation
+from sbi_tvb import analysis, simulation
 from tvb.simulator.lab import *
 
 LOG = get_logger('demo')

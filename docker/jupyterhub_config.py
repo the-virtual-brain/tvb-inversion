@@ -16,10 +16,12 @@ c.JupyterHub.hub_connect_ip = 'jupyterhub'
 
 # pick a docker image. This should have the same version of jupyterhub
 # in it as our Hub.
-c.DockerSpawner.image = 'jupyter/datascience-notebook'
+notebook_image = os.environ.get('DOCKER_NOTEBOOK_IMAGE')
+c.DockerSpawner.image = notebook_image
 
 # tell the user containers to connect to our docker network
-c.DockerSpawner.network_name = 'jupyterhub'
+network = os.environ.get('DOCKER_NETWORK_NAME') or 'jupyterhub'
+c.DockerSpawner.network_name = network
 
 # delete containers when the stop
 c.DockerSpawner.remove = True
@@ -33,7 +35,10 @@ notebook_dir = os.environ.get('DOCKER_NOTEBOOK_DIR') or '/home/jovyan/work'
 c.DockerSpawner.notebook_dir = notebook_dir
 # Mount the real user's Docker volume on the host to the notebook user's
 # notebook directory in the container
-c.DockerSpawner.volumes = {'/Users/bvalean/UTILS/HUB_DATA/HOST/user-{username}': notebook_dir}
+personal_notebooks_volume = os.environ.get('DATA_VOLUME_HOST') or '/opt/data'
+personal_notebooks_volume += '/{}'
+persisted_work = notebook_dir + '/persisted_work'
+c.DockerSpawner.volumes = {personal_notebooks_volume.format("user-{username}"): persisted_work}
 
 # For debugging arguments passed to spawned containers
 c.DockerSpawner.debug = True

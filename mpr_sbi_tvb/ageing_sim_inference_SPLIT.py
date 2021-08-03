@@ -15,7 +15,7 @@ import torch
 from matplotlib import rcParams
 from sbi.inference import SNPE
 from scipy.stats import zscore
-from src import analysis, FC_analysis
+from sbi_tvb import analysis, FC_analysis
 from tvb.simulator.lab import *
 
 from mpr_sbi_tvb.ageing_sim_inference import weights

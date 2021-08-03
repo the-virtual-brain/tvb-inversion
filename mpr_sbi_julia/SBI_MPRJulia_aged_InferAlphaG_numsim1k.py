@@ -19,7 +19,7 @@ from scipy.stats import kurtosis
 from scipy.stats import moment
 from scipy.stats import skew
 from sklearn import linear_model
-from src.FCD import extract_FCD
+from sbi_julia import extract_FCD
 
 warnings.simplefilter("ignore")
 

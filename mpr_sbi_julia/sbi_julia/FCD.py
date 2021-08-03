@@ -4,7 +4,7 @@ Created on Wed Apr 27 15:57:38 2016
 @author: jmaidana
 @author: porio
 """
-from __future__ import division
+# from __future__ import division
 import numpy as np
 import matplotlib.pylab as plt
 

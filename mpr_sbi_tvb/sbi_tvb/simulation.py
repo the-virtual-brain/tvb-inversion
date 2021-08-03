@@ -3,7 +3,7 @@ import itertools
 from tvb.simulator.lab import *
 from tvb.datatypes.time_series import TimeSeriesRegion
 from tvb.analyzers import fmri_balloon
-from src.bold import BalloonModel
+from sbi_tvb.bold import BalloonModel
 
 
 

@@ -5,21 +5,22 @@
 version: "2"
 
 services:
-#  jupyterhub-db:
-#    image: postgres:9.5
-#    container_name: jupyterhub-db
-#    restart: always
-#    environment:
-#      POSTGRES_DB: ${POSTGRES_DB}
-#      PGDATA: ${DB_VOLUME_CONTAINER}
-#    env_file:
-#      - .env
-#    volumes:
-#      - "${DB_VOLUME_HOST}:${DB_VOLUME_CONTAINER}"
+  jupyterhub-db:
+    image: postgres:9.5
+    container_name: jupyterhub-db
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATA: ${DB_VOLUME_CONTAINER}
+    env_file:
+      - .env
+    volumes:
+      - "${DB_VOLUME_HOST}:${DB_VOLUME_CONTAINER}"
 
   jupyterhub:
-#    depends_on:
-#      - hub-db
+    depends_on:
+      - jupyterhub-db
     restart: always
     image: hub
     container_name: jupyterhub
@@ -31,13 +32,13 @@ services:
       - "${DATA_VOLUME_HOST}:${DATA_VOLUME_CONTAINER}"
     ports:
       - "8000:8000"
-#    links:
-#      - hub-db
+    links:
+      - jupyterhub-db
     environment:
       # All containers will join this network
       DOCKER_NETWORK_NAME: ${DOCKER_NETWORK_NAME}
       # JupyterHub will spawn this Notebook image for users
-      DOCKER_NOTEBOOK_IMAGE: ${LOCAL_NOTEBOOK_IMAGE}
+      DOCKER_NOTEBOOK_IMAGE: ${DOCKER_NOTEBOOK_IMAGE}
       # Notebook directory inside user image
       DOCKER_NOTEBOOK_DIR: ${DOCKER_NOTEBOOK_DIR}
       # Using this run command (optional)
