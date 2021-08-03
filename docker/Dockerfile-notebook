@@ -1,0 +1,22 @@
+FROM jupyter/datascience-notebook
+USER root
+RUN cd /opt; \
+    git clone --depth 1 --branch TVB-2892-chunks https://github.com/i-Zaak/tvb-root.git;
+
+RUN cd /opt/tvb-root; \
+    git pull; \
+    cd scientific_library; \
+    /opt/conda/bin/python setup.py install
+
+RUN cd /opt; \
+    git clone --depth 1 --branch initial_code_artifacts https://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@github.com/the-virtual-brain/tvb-inversion.git;
+
+RUN cd /opt/tvb-inversion; \
+    cd tvb-inversion; \
+    cd mpr_sbi_tvb; \
+    /opt/conda/bin/python setup.py install; \
+    cd ../mpr_sbi_julia; \
+    /opt/conda/bin/python setup.py install;
+
+USER $NB_UID
+WORKDIR $HOME
