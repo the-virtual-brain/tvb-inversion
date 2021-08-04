@@ -1,5 +1,8 @@
 FROM jupyter/datascience-notebook:python-3.8.8
 
+RUN julia -e "using Pkg; pkg\"add Distributions\""
+RUN /opt/conda/bin/python -c "import julia; julia.install()"
+
 USER root
 RUN cd /opt; \
     git clone --depth 1 --branch TVB-2892-chunks https://github.com/i-Zaak/tvb-root.git;
@@ -13,7 +16,6 @@ RUN cd /opt; \
     git clone --depth 1 --branch initial_code_artifacts https://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@github.com/the-virtual-brain/tvb-inversion.git;
 
 RUN cd /opt/tvb-inversion; \
-    ls;ls; \
     git pull; \
     cd mpr_sbi_tvb; \
     cp -R notebooks $HOME/work/; \
@@ -25,8 +27,4 @@ RUN cd /opt/tvb-inversion; \
 RUN chown -R $NB_UID:$NB_UID $HOME
 
 USER $NB_UID
-
-RUN julia -e "using Pkg; pkg\"add Distributions\""
-RUN /opt/conda/bin/python -c "import julia; julia.install()"
-
 WORKDIR $HOME
