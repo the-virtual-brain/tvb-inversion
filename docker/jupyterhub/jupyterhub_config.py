@@ -1,9 +1,21 @@
 import os
+from oauthenticator.generic import GenericOAuthenticator
 
 c = get_config()  # noqa
 
-# dummy for testing. Don't use this in production!
-c.JupyterHub.authenticator_class = "dummy"
+# Oauth
+keycloak_server = os.environ['KEYCLOAK_SERVER']
+c.JupyterHub.authenticator_class = GenericOAuthenticator
+c.OAuthenticator.client_id = "tvb-inversion"
+c.OAuthenticator.scope = ["openid email roles team profile group"]
+c.OAuthenticator.client_secret = os.environ['KEYCLOAK_CLIENT_SECRET']
+c.GenericOAuthenticator.login_service = 'EBRAINS IAM'
+c.GenericOAuthenticator.token_url = "{}/auth/realms/TVB/protocol/openid-connect/token".format(keycloak_server)
+c.GenericOAuthenticator.authorize_url = "{}/auth/realms/TVB/protocol/openid-connect/auth".format(keycloak_server)
+c.GenericOAuthenticator.userdata_url = "{}/auth/realms/TVB/protocol/openid-connect/userinfo".format(
+    keycloak_server)
+c.GenericOAuthenticator.userdata_params = {'state': 'state'}
+c.GenericOAuthenticator.username_key = "preferred_username"
 
 # launch with docker
 c.JupyterHub.spawner_class = "docker"

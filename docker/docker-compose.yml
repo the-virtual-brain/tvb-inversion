@@ -22,7 +22,10 @@ services:
     depends_on:
       - jupyterhub-db
     restart: always
-    image: hub
+    build:
+      context: .
+      dockerfile: Dockerfile-hub
+    image: tvb-inversion-hub
     container_name: jupyterhub
     volumes:
       # Bind Docker socket on the host so we can connect to the daemon from
@@ -30,6 +33,7 @@ services:
       - "/var/run/docker.sock:/var/run/docker.sock:rw"
       # Bind Docker volume on host for JupyterHub database and cookie secrets
       - "${DATA_VOLUME_HOST}:${DATA_VOLUME_CONTAINER}"
+      - "./jupyterhub:/srv/jupyterhub"
     ports:
       - "8000:8000"
     links:
@@ -46,6 +50,8 @@ services:
       # Postgres db info
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_HOST: jupyterhub-db
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
+      KEYCLOAK_SERVER: ${KEYCLOAK_SERVER}
     env_file:
       - .env
 
