@@ -7,6 +7,7 @@ import numba
 import numpy as np
 import sbi
 import sbi.utils as utils
+import sbi_julia
 import torch
 from julia.api import Julia
 Julia(compiled_modules=False)
@@ -34,9 +35,10 @@ print("Load MPR.jl")
 MPR = Main.include("MPR.jl")
 
 print("Load SC and masks")
-SC_healthy = np.loadtxt(cwd + '/data_input_files/SCjulichmax.txt', delimiter=',', unpack=True)
-MaskJulichA = np.loadtxt(cwd + '/data_input_files/MaskJulichA.txt', delimiter=',', unpack=True)
-MaskJulichB = np.loadtxt(cwd + '/data_input_files/MaskJulichB.txt', delimiter=',', unpack=True)
+sbi_julia_path = sbi_julia.__path__
+SC_healthy = np.loadtxt(sbi_julia_path + '/data_input_files/SCjulichmax.txt', delimiter=',', unpack=True)
+MaskJulichA = np.loadtxt(sbi_julia_path + '/data_input_files/MaskJulichA.txt', delimiter=',', unpack=True)
+MaskJulichB = np.loadtxt(sbi_julia_path + '/data_input_files/MaskJulichB.txt', delimiter=',', unpack=True)
 alpha = 0.5
 beta = 0.0
 

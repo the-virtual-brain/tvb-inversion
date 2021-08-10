@@ -6,6 +6,7 @@ import numpy as np
 import sbi
 import sbi.inference
 import sbi.utils as utils
+import sbi_tvb
 import scipy
 import scipy.stats
 import torch
@@ -25,8 +26,10 @@ rcParams['figure.figsize'] = 15, 6
 #
 # Define data an results dir
 ############################
-bold = np.loadtxt(os.path.join('data_input_files', 'meanTS_GS_bptf_Schaefer100_7NW.txt'))
-weights = np.loadtxt(os.path.join('data_input_files', 'SC_Schaefer7NW100p_nolog10.txt'))
+
+sbi_tvb_path = os.path.dirname(os.path.dirname(sbi_tvb.__file__))
+bold = np.loadtxt(os.path.join(sbi_tvb_path, 'data_input_files', 'meanTS_GS_bptf_Schaefer100_7NW.txt'))
+weights = np.loadtxt(os.path.join(sbi_tvb_path, 'data_input_files', 'SC_Schaefer7NW100p_nolog10.txt'))
 BOLD_TR = 2250
 
 Res_dir = 'results'
