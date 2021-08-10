@@ -4,12 +4,12 @@ from oauthenticator.generic import GenericOAuthenticator
 c = get_config()  # noqa
 
 # Oauth
-keycloak_server = os.environ['KEYCLOAK_SERVER']
 c.JupyterHub.authenticator_class = GenericOAuthenticator
-c.OAuthenticator.client_id = "tvb-inversion"
+c.OAuthenticator.client_id = os.environ['KEYCLOAK_CLIENT']
 c.OAuthenticator.scope = ["openid email roles team profile group"]
 c.OAuthenticator.client_secret = os.environ['KEYCLOAK_CLIENT_SECRET']
 c.GenericOAuthenticator.login_service = 'EBRAINS IAM'
+keycloak_server = os.environ['KEYCLOAK_SERVER']
 c.GenericOAuthenticator.token_url = "{}/auth/realms/TVB/protocol/openid-connect/token".format(keycloak_server)
 c.GenericOAuthenticator.authorize_url = "{}/auth/realms/TVB/protocol/openid-connect/auth".format(keycloak_server)
 c.GenericOAuthenticator.userdata_url = "{}/auth/realms/TVB/protocol/openid-connect/userinfo".format(

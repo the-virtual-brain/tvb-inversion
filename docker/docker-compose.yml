@@ -51,6 +51,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_HOST: jupyterhub-db
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
+      KEYCLOAK_CLIENT: ${KEYCLOAK_CLIENT}
       KEYCLOAK_SERVER: ${KEYCLOAK_SERVER}
     env_file:
       - .env
