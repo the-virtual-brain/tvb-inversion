@@ -1,0 +1,62 @@
+# Copyright (c) Jupyter Development Team.
+# Distributed under the terms of the Modified BSD License.
+
+# JupyterHub docker-compose configuration file
+version: "2"
+
+services:
+  jupyterhub-db:
+    image: postgres:9.5
+    container_name: jupyterhub-db
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATA: ${DB_VOLUME_CONTAINER}
+    env_file:
+      - .env
+    volumes:
+      - "${DB_VOLUME_HOST}:${DB_VOLUME_CONTAINER}"
+
+  jupyterhub:
+    depends_on:
+      - jupyterhub-db
+    restart: always
+    build:
+      context: .
+      dockerfile: Dockerfile-hub
+    image: tvb-inversion-hub
+    container_name: jupyterhub
+    volumes:
+      # Bind Docker socket on the host so we can connect to the daemon from
+      # within the container
+      - "/var/run/docker.sock:/var/run/docker.sock:rw"
+      # Bind Docker volume on host for JupyterHub database and cookie secrets
+      - "${DATA_VOLUME_HOST}:${DATA_VOLUME_CONTAINER}"
+      - "./jupyterhub:/srv/jupyterhub"
+    ports:
+      - "8000:8000"
+    links:
+      - jupyterhub-db
+    environment:
+      # All containers will join this network
+      DOCKER_NETWORK_NAME: ${DOCKER_NETWORK_NAME}
+      # JupyterHub will spawn this Notebook image for users
+      DOCKER_NOTEBOOK_IMAGE: ${DOCKER_NOTEBOOK_IMAGE}
+      # Notebook directory inside user image
+      DOCKER_NOTEBOOK_DIR: ${DOCKER_NOTEBOOK_DIR}
+      # Using this run command (optional)
+      DOCKER_SPAWN_CMD: ${DOCKER_SPAWN_CMD}
+      # Postgres db info
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_HOST: jupyterhub-db
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
+      KEYCLOAK_CLIENT: ${KEYCLOAK_CLIENT}
+      KEYCLOAK_SERVER: ${KEYCLOAK_SERVER}
+    env_file:
+      - .env
+
+networks:
+  default:
+    external:
+      name: ${DOCKER_NETWORK_NAME}
