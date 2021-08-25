@@ -1,3 +1,4 @@
+# Build notebook image: docker build -f Dockerfile-notebook -t notebook --build-arg TOKEN=<github_security_token> .
 FROM jupyter/datascience-notebook:python-3.8.8
 
 RUN julia -e "using Pkg; pkg\"add Distributions\""
