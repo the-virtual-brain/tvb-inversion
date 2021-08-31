@@ -22,19 +22,12 @@ if __name__ == '__main__':
     sbi_tvb_path = os.path.dirname(os.path.dirname(sbi_tvb.__file__))
     weights = np.loadtxt(os.path.join(sbi_tvb_path, 'data_input_files', 'SC_Schaefer7NW100p_nolog10.txt'))
 
-    mpr = models.MontbrioPazoRoxin(
-        eta=np.r_[-4.6],
-        J=np.r_[14.5],
-        Delta=np.r_[0.7],
-        tau=np.r_[1],
-    )
-
     print("Build TvbInference object")
-    tvb_inference = TvbInference('results', num_simulations=100, num_workers=10)
+    tvb_inference = TvbInference('results', num_simulations=10, num_workers=1)
     print("Build prior")
     tvb_inference.build_prior(1.5, 3.2)
     print("Simulation setup")
-    tvb_inference.simulation_setup(mpr, weights, sim_len, nsigma, BOLD_TR, dt, seed)
+    tvb_inference.simulation_setup_default(weights, sim_len, nsigma, BOLD_TR, dt, seed)
     print("Sbi inference")
     tvb_inference.sbi_infer()
     print("Run observed simulation")

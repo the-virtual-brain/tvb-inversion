@@ -14,9 +14,13 @@ from scipy.stats import kurtosis
 from scipy.stats import moment
 from scipy.stats import skew
 from tvb.simulator.lab import *
+from tvb.simulator.models.base import Model
 
 
 class TvbInference:
+    SIMULATIONS_RESULTS = "inference_theta_jn_sim.npz"
+    POSTERIOR_SAMPLES = "posterior_samples_jn_sim.npz"
+
     def __init__(self, results_dir, method='SNPE', num_simulations=20, num_workers=1):
         self.method = method
         self.num_simulations = num_simulations
@@ -29,6 +33,10 @@ class TvbInference:
 
         # Simulations config
         self.model = None
+        self.conn = None
+        self.cond_speed = None
+        self.integrator = None
+        self.monitors = None
         self.weights = None
         self.sim_len = None
         self.nsigma = None
@@ -38,19 +46,32 @@ class TvbInference:
 
         self.trained = False
 
+    @property
+    def results_directory(self):
+        if os.path.isabs(self.results_dir):
+            return self.results_dir
+        return os.path.join(os.getcwd(), self.results_dir)
+
+    @property
+    def sim_results_path(self):
+        return os.path.join(self.results_directory, TvbInference.SIMULATIONS_RESULTS)
+
+    @property
+    def posterior_samples_path(self):
+        return os.path.join(self.results_directory, TvbInference.POSTERIOR_SAMPLES)
+
     def _validate_configs(self):
-        if self.model is None or \
-                self.weights is None or \
+        if (self.weights is None and self.conn is None) or \
                 self.sim_len is None or \
-                self.nsigma is None or \
+                (self.nsigma is None and self.integrator is None) or \
+                (self.seed is None and self.integrator is None) or \
+                (self.dt is None and self.integrator is None) or \
                 self.BOLD_TR is None or \
-                self.dt is None or \
-                self.seed is None or \
                 self.prior is None:
             return False
         return True
 
-    def simulation_setup(self, model, weights, sim_len, nsigma, BOLD_TR, dt, seed):
+    def simulation_setup_default(self, weights, sim_len, nsigma, BOLD_TR, dt, seed):
         self.trained = False
         self.weights = weights
         self.sim_len = sim_len
@@ -58,7 +79,18 @@ class TvbInference:
         self.BOLD_TR = BOLD_TR
         self.dt = dt
         self.seed = seed
+
+    def simulation_setup_tvb(self, model: models.base.Model = None, connectivity: connectivity.Connectivity = None,
+                             cond_speed: float = None, integrator: integrators.Integrator = None, monitors: [] = None,
+                             sim_len: int = None, bold_tr: int = None):
+        self.trained = False
         self.model = model
+        self.conn = connectivity
+        self.cond_speed = cond_speed
+        self.integrator = integrator
+        self.monitors = monitors
+        self.sim_len = sim_len
+        self.BOLD_TR = bold_tr
 
     def build_prior(self, prior_min, prior_max):
         self.trained = False
@@ -167,33 +199,53 @@ class TvbInference:
     # The BOLD is derived moving average of the R signal
     #
     def run_sim(self, G):
-        magic_number = 124538.470647693
-        weights_orig = self.weights / magic_number
+        model = self.model
+        if model is None:
+            model = models.MontbrioPazoRoxin(
+                eta=np.r_[-4.6],
+                J=np.r_[14.5],
+                Delta=np.r_[0.7],
+                tau=np.r_[1],
+            )
 
-        conn = connectivity.Connectivity(
-            weights=weights_orig,
-            region_labels=np.array(np.zeros(np.shape(weights_orig)[0]), dtype='<U128'),
-            tract_lengths=np.zeros(np.shape(weights_orig)),
-            areas=np.zeros(np.shape(weights_orig)[0]),
-            speed=np.array(np.Inf, dtype=float),
-            centres=np.zeros(np.shape(weights_orig)[0]))  # default 76 regions
+        conn = self.conn
+        if conn is None:
+            magic_number = 124538.470647693
+            weights_orig = self.weights / magic_number
+            conn = connectivity.Connectivity(
+                weights=weights_orig,
+                region_labels=np.array(np.zeros(np.shape(weights_orig)[0]), dtype='<U128'),
+                tract_lengths=np.zeros(np.shape(weights_orig)),
+                areas=np.zeros(np.shape(weights_orig)[0]),
+                speed=np.array(np.Inf, dtype=float),
+                centres=np.zeros(np.shape(weights_orig)[0]))  # default 76 regions
 
-        sim = simulator.Simulator(model=self.model,
+        integrator = self.integrator
+        if integrator is None:
+            integrator = integrators.HeunStochastic(
+                dt=self.dt,
+                noise=noise.Additive(
+                    nsig=np.r_[self.nsigma, self.nsigma * 2],
+                    noise_seed=self.seed
+                )
+            )
+
+        _monitors = self.monitors
+        if _monitors is None:
+            _monitors = [monitors.TemporalAverage(period=0.1)]
+
+        cond_speed = self.cond_speed
+        if cond_speed is None:
+            cond_speed = np.Inf
+
+        sim = simulator.Simulator(model=model,
                                   connectivity=conn,
                                   coupling=coupling.Scaling(
                                       a=np.r_[G]
                                   ),
-                                  conduction_speed=np.Inf,
-                                  integrator=integrators.HeunStochastic(
-                                      dt=self.dt,
-                                      noise=noise.Additive(
-                                          nsig=np.r_[self.nsigma, self.nsigma * 2],
-                                          noise_seed=self.seed
-                                      )
-                                  ),
-                                  monitors=[
-                                      monitors.TemporalAverage(period=0.1),
-                                  ]
+                                  conduction_speed=cond_speed,
+                                  integrator=integrator,
+                                  monitors=_monitors
                                   )
 
         sim.configure()
@@ -237,7 +289,7 @@ class TvbInference:
             num_workers=self.num_workers,
             show_progress_bar=True,
         )
-        mysavepath = os.path.join(self.results_dir, 'inference_theta_jn_sim.npz')
+        mysavepath = os.path.join(self.results_dir, TvbInference.SIMULATIONS_RESULTS)
         np.savez(mysavepath, theta=theta, x=x)
         return theta, x
 
@@ -270,7 +322,7 @@ class TvbInference:
                                                                     features=['higher_moments', 'FC_corr', 'FCD_corr'])
         num_samples = 1000
         posterior_samples = self.posterior.sample((num_samples,), obs_summary_statistics, sample_with_mcmc=True).numpy()
-        mysavepath = os.path.join(self.results_dir, 'posterior_samples_jn_sim.npz')
+        mysavepath = os.path.join(self.results_dir, TvbInference.POSTERIOR_SAMPLES)
         np.savez(mysavepath, posterior_samples=posterior_samples)
         G_posterior = posterior_samples[:, 0]
         if plot_posterior:
