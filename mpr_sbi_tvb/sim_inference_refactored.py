@@ -1,6 +1,5 @@
 import numpy as np
 import sbi_tvb
-import torch
 from matplotlib import rcParams
 from sbi_tvb.inference import TvbInference
 from tvb.simulator.lab import *
@@ -39,7 +38,7 @@ if __name__ == '__main__':
     # loaded_simulations = np.load("/Users/bvalean/WORK/tvb-inversion/mpr_sbi_tvb/results/inference_theta_jn_sim.npz")
     # theta_sim = loaded_simulations['theta']
     # x_sim = loaded_simulations['x']
-    # tvb_inference.train_network(torch.as_tensor(theta_sim), torch.as_tensor(x_sim))
+    # tvb_inference.train_network(theta_sim, x_sim)
     # print("Run observed simulation")
     # BOLD_obs = tvb_inference.run_sim(G)
     # print("Posterior Distribution")

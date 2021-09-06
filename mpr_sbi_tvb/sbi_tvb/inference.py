@@ -300,6 +300,12 @@ class TvbInference:
             raise NameError(
                 "Method not available. `method` must be one of 'SNPE', 'SNLE', 'SNRE'."
             )
+        if not isinstance(theta, torch.Tensor):
+            theta = torch.as_tensor(theta)
+
+        if not isinstance(x, torch.Tensor):
+            x = torch.as_tensor(x)
+
         inference = method_fun(self.prior)
         _ = inference.append_simulations(theta, x).train()
         posterior = inference.build_posterior()
