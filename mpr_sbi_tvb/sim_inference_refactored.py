@@ -35,12 +35,12 @@ if __name__ == '__main__':
     found_value = tvb_inference.posterior_distribution(BOLD_obs, G, True)
     print("G value found: {}".format(found_value))
 
-    # loaded_simulations = np.load("/Users/bvalean/WORK/tvb-inversion/mpr_sbi_tvb/results/inference_theta_jn_sim.npz")
-    # theta_sim = loaded_simulations['theta']
-    # x_sim = loaded_simulations['x']
-    # tvb_inference.train_network(theta_sim, x_sim)
-    # print("Run observed simulation")
-    # BOLD_obs = tvb_inference.run_sim(G)
-    # print("Posterior Distribution")
-    # found_value = tvb_inference.posterior_distribution(BOLD_obs, G, True)
-    # print("G value found: {}".format(found_value))
+    loaded_simulations = np.load("/Users/bvalean/WORK/tvb-inversion/mpr_sbi_tvb/results/inference_theta_jn_sim.npz")
+    theta_sim = loaded_simulations['theta']
+    x_sim = loaded_simulations['x']
+    tvb_inference.train_network(theta_sim, x_sim)
+    print("Run observed simulation")
+    BOLD_obs = tvb_inference.run_sim(G)
+    print("Posterior Distribution")
+    found_value = tvb_inference.posterior_distribution(BOLD_obs, G, True)
+    print("G value found: {}".format(found_value))
