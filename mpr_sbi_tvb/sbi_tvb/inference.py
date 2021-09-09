@@ -280,7 +280,6 @@ class TvbInference:
             raise Exception("Please check simulation configs")
 
         sim, prior = prepare_for_sbi(self.MPR_simulator_wrapper, self.prior)
-        self.prior = prior
 
         theta, x = simulate_for_sbi(
             simulator=sim,
@@ -300,13 +299,17 @@ class TvbInference:
             raise NameError(
                 "Method not available. `method` must be one of 'SNPE', 'SNLE', 'SNRE'."
             )
+        if self.prior is None:
+            raise Exception("Prior is not defined")
+
         if not isinstance(theta, torch.Tensor):
             theta = torch.as_tensor(theta)
 
         if not isinstance(x, torch.Tensor):
             x = torch.as_tensor(x)
 
-        inference = method_fun(self.prior)
+        sim, prior = prepare_for_sbi(self.MPR_simulator_wrapper, self.prior)
+        inference = method_fun(prior)
         _ = inference.append_simulations(theta, x).train()
         posterior = inference.build_posterior()
 
