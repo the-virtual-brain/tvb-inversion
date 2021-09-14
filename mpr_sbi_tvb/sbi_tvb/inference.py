@@ -334,8 +334,11 @@ class TvbInference:
         mysavepath = os.path.join(self.results_dir, TvbInference.POSTERIOR_SAMPLES)
         np.savez(mysavepath, posterior_samples=posterior_samples)
         G_posterior = posterior_samples[:, 0]
+        found_value = G_posterior.mean()
         if plot_posterior:
             print("Plot G posterior")
+            if G_true is None:
+                G_true = found_value
             params_true = np.hstack([G_true])
             plt.figure(figsize=(4, 4))
             plt.violinplot(G_posterior, widths=0.7, showmeans=True, showextrema=True)
@@ -347,4 +350,4 @@ class TvbInference:
             plt.tight_layout()
             plt.show()
 
-        return G_posterior.mean()
+        return found_value
