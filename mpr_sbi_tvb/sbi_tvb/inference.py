@@ -71,7 +71,7 @@ class TvbInference:
             return False
         return True
 
-    def simulation_setup_default(self, weights, sim_len, nsigma, BOLD_TR, dt, seed):
+    def simulation_setup(self, weights, sim_len, nsigma, BOLD_TR, dt, seed):
         self.trained = False
         self.weights = weights
         self.sim_len = sim_len
@@ -261,7 +261,7 @@ class TvbInference:
         return R.T
 
     # Define the wrapper such that you can iterate the simulator with SBI
-    def MPR_simulator_wrapper(self, params):
+    def _MPR_simulator_wrapper(self, params):
         params = np.asarray(params)
 
         params_G = params[0]
@@ -279,7 +279,7 @@ class TvbInference:
         if not self._validate_configs():
             raise Exception("Please check simulation configs")
 
-        sim, prior = prepare_for_sbi(self.MPR_simulator_wrapper, self.prior)
+        sim, prior = prepare_for_sbi(self._MPR_simulator_wrapper, self.prior)
 
         theta, x = simulate_for_sbi(
             simulator=sim,
@@ -308,7 +308,7 @@ class TvbInference:
         if not isinstance(x, torch.Tensor):
             x = torch.as_tensor(x)
 
-        sim, prior = prepare_for_sbi(self.MPR_simulator_wrapper, self.prior)
+        sim, prior = prepare_for_sbi(self._MPR_simulator_wrapper, self.prior)
         inference = method_fun(prior)
         _ = inference.append_simulations(theta, x).train()
         posterior = inference.build_posterior()

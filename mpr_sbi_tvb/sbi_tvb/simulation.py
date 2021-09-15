@@ -1,10 +1,5 @@
-import numpy as np
-import itertools
-from tvb.simulator.lab import *
 from tvb.datatypes.time_series import TimeSeriesRegion
-from tvb.analyzers import fmri_balloon
-from sbi_tvb.bold import BalloonModel
-
+from sbi_tvb.bold import SbiBalloonModel
 
 
 def run_nbMPR_backend(sim, **kwargs):
@@ -35,17 +30,17 @@ def tavg_to_bold(tavg_t, tavg_d, sim=None, tavg_period=None, connectivity=None, 
         assert tavg_period is not None and connectivity is not None
 
     tsr = TimeSeriesRegion(
-        connectivity = connectivity,
-        data = tavg_d[:,[svar],:,:],
-        time = tavg_t,
-        sample_period = tavg_period
+        connectivity=connectivity,
+        data=tavg_d[:, [svar], :, :],
+        time=tavg_t,
+        sample_period=tavg_period
     )
     tsr.configure()
 
-    bold_model = BalloonModel(time_series = tsr, dt=tavg_period/1000)
-    bold_data_analyzer  = bold_model.evaluate()
+    bold_model = SbiBalloonModel(time_series=tsr, dt=tavg_period / 1000)
+    bold_data_analyzer = bold_model.evaluate()
 
-    bold_t = bold_data_analyzer.time[::decimate] * 1000 # to ms
-    bold_d = bold_data_analyzer.data[::decimate,:]
+    bold_t = bold_data_analyzer.time[::decimate] * 1000  # to ms
+    bold_d = bold_data_analyzer.data[::decimate, :]
 
-    return bold_t, bold_d 
+    return bold_t, bold_d

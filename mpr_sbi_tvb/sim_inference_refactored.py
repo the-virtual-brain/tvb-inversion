@@ -26,7 +26,7 @@ if __name__ == '__main__':
     print("Build prior")
     tvb_inference.build_prior(1.5, 3.2)
     print("Simulation setup")
-    tvb_inference.simulation_setup_default(weights, sim_len, nsigma, BOLD_TR, dt, seed)
+    tvb_inference.simulation_setup(weights, sim_len, nsigma, BOLD_TR, dt, seed)
     print("Sbi inference")
     tvb_inference.sbi_infer()
     print("Run observed simulation")
