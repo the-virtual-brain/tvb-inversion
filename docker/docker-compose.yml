@@ -35,7 +35,7 @@ services:
       - "${DATA_VOLUME_HOST}:${DATA_VOLUME_CONTAINER}"
       - "./jupyterhub:/srv/jupyterhub"
     ports:
-      - "8000:8000"
+      - "8888:8000"
     links:
       - jupyterhub-db
     environment:

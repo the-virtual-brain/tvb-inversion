@@ -1,2 +1,0 @@
-git+https://github.com/i-Zaak/tvb-root.git@TVB-2892-chunks#egg=tvb-library&subdirectory=scientific_library
-autopep8

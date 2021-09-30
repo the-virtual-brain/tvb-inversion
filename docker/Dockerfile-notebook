@@ -1,3 +1,4 @@
+# Build notebook image: docker build -f Dockerfile-notebook -t notebook --build-arg CACHE="$(date)" --build-arg TOKEN=<github_security_token> .
 FROM jupyter/datascience-notebook:python-3.8.8
 
 RUN julia -e "using Pkg; pkg\"add Distributions\""
@@ -15,8 +16,9 @@ RUN cd /opt/tvb-root; \
 
 ARG TOKEN=github_security_token
 RUN cd /opt; \
-    git clone --depth 1 --branch initial_code_artifacts https://$TOKEN@github.com/the-virtual-brain/tvb-inversion.git
+    git clone --depth 1 --branch refactoring https://$TOKEN@github.com/the-virtual-brain/tvb-inversion.git
 
+ARG CACHE=now
 RUN cd /opt/tvb-inversion; \
     git pull; \
     cd mpr_sbi_tvb; \
