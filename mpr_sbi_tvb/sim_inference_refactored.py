@@ -1,6 +1,7 @@
 import numpy as np
 import sbi_tvb
 from sbi_tvb.inference import TvbInference
+from sbi_tvb.prior import Prior
 from tvb.simulator.lab import *
 
 
@@ -48,7 +49,8 @@ def build_simulator():
                               ),
                               conduction_speed=cond_speed,
                               integrator=integrator,
-                              monitors=_monitors
+                              monitors=_monitors,
+                              simulation_length=30e3
                               )
     return sim
 
@@ -57,15 +59,16 @@ if __name__ == '__main__':
     sim = build_simulator()
     print("Build TvbInference object")
     tvb_inference = TvbInference(sim=sim,
-                                 priors={
-                                     'coupling.a': {
-                                         'min': 1.5 * np.ones(1),
-                                         'max': 3.2 * np.ones(1)
-                                     },
-                                 },
-                                 set_simulator_values=set_sim_params)
+                                 priors=[Prior('coupling.a', 1.5, 3.2),
+                                         Prior('model.eta', -5, -1)])
 
-    tvb_inference.sample_priors(sim_len=30e3, num_simulations=20)
+    print("Sample priors")
+    tvb_inference.sample_priors(num_simulations=10, num_workers=1)
+    print("Train")
     tvb_inference.train()
+
+    print("Run observed simulation")
     data = tvb_inference.run_sim([2.2])
-    tvb_inference.posterior(data=data)
+    print("Run Posterior")
+    post_samples = tvb_inference.posterior(data=data)
+    print(post_samples.mean())

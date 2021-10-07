@@ -1,5 +1,6 @@
+import os
 from copy import deepcopy
-from typing import Callable
+from typing import Callable, List
 
 import numpy as np
 import sbi
@@ -8,6 +9,8 @@ import scipy
 import torch
 from sbi.inference import prepare_for_sbi, simulate_for_sbi
 from sbi_tvb import analysis
+from sbi_tvb.prior import Prior
+from sbi_tvb.utils import custom_setattr
 from scipy import signal
 from scipy.stats import kurtosis
 from scipy.stats import moment
@@ -20,54 +23,38 @@ class TvbInference:
     SIMULATIONS_RESULTS = "inference_theta_jn_sim.npz"
     POSTERIOR_SAMPLES = "posterior_samples_jn_sim.npy"
 
-    def __init__(self, sim: simulator.Simulator, priors,
-                 set_simulator_values: Callable[[simulator.Simulator, list], None],
+    def __init__(self, sim: simulator.Simulator,
+                 priors: List[Prior],
                  summary_statistics=None):
         self.simulator = sim
         self.prior = self.build_prior(priors)
+        self.priors_list = priors
         if summary_statistics is None:
             summary_statistics = self._calculate_summary_statistics
         self.summary_statistics = summary_statistics
         self.backend = None
-        self.sim_len = None
         self.theta = None
         self.x = None
         self.trained = False
         self.set_params = False
         self.inf_posterior = None
-        self.set_sim_params = set_simulator_values
 
-    @property
-    def results_directory(self):
-        if os.path.isabs(self.results_dir):
-            return self.results_dir
-        return os.path.join(os.getcwd(), self.results_dir)
-
-    @property
-    def sim_results_path(self):
-        return os.path.join(self.results_directory, TvbInference.SIMULATIONS_RESULTS)
-
-    @property
-    def posterior_samples_path(self):
-        return os.path.join(self.results_directory, TvbInference.POSTERIOR_SAMPLES)
-
-    def build_prior(self, priors: dict):
+    def build_prior(self, priors: List[Prior]):
         self.trained = False
         prior_min = None
         prior_max = None
-        # Min value
-        for value in priors.values():
-            min = value['min']
-            max = value['max']
+        for prior in priors:
+            min_value = prior.min
+            max_value = prior.max
             if prior_min is None:
-                prior_min = min
+                prior_min = min_value
             else:
-                prior_min = np.append(prior_min, min)
+                prior_min = np.append(prior_min, min_value)
 
             if prior_max is None:
-                prior_max = max
+                prior_max = max_value
             else:
-                prior_max = np.append(prior_max, max)
+                prior_max = np.append(prior_max, max_value)
 
         return utils.torchutils.BoxUniform(low=torch.as_tensor(prior_min), high=torch.as_tensor(prior_max))
 
@@ -172,11 +159,10 @@ class TvbInference:
         used_simulator = deepcopy(self.simulator)
         if self.set_params:
             print("Using params: {}".format(params))
-            self.set_sim_params(used_simulator, params)
+            self._set_sim_params(used_simulator, params)
         used_simulator.configure()
-
-        (TemporalAverage_time, TemporalAverage_data), = self.backend.run_sim(used_simulator,
-                                                                             simulation_length=self.sim_len)
+        (TemporalAverage_time, TemporalAverage_data), = self.backend().run_sim(used_simulator,
+                                                                               simulation_length=used_simulator.simulation_length)
         TemporalAverage_time *= 10  # rescale time
 
         R_TAVG = TemporalAverage_data[:, 0, :, 0]
@@ -195,9 +181,8 @@ class TvbInference:
     # that you can potentially split the simulation step from the inference in case that it is needed.
     # For example, the simulation time for the wrappper is too long and you might want to parallelize on HPC facilities.
     # The inference function produces a posterorior object, which contains a neural network for posterior density estimation
-    def sample_priors(self, backend=NbMPRBackend(), save_path=None, num_simulations=20, num_workers=1, sim_len=1000):
+    def sample_priors(self, backend=NbMPRBackend, save_path=None, num_simulations=20, num_workers=1):
         self.backend = backend
-        self.sim_len = sim_len
         self.set_params = False
         sim, prior = prepare_for_sbi(self._MPR_simulator_wrapper, self.prior)
         self.set_params = True
@@ -262,3 +247,10 @@ class TvbInference:
         mysavepath = os.path.join(save_path, TvbInference.POSTERIOR_SAMPLES)
         np.save(mysavepath, posterior_samples)
         return posterior_samples
+
+    def _set_sim_params(self, sim: simulator.Simulator, params):
+        index = 0
+        for prior in self.priors_list:
+            value = params[index:index + prior.size]
+            index += prior.size
+            custom_setattr(sim, prior.path, value)
