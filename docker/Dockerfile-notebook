@@ -19,6 +19,8 @@ RUN cd /opt; \
     git clone --depth 1 --branch refactoring https://$TOKEN@github.com/the-virtual-brain/tvb-inversion.git
 
 ARG CACHE=now
+
+COPY oauth.py /home/jovyan/.ipython/profile_default/startup/start.py
 RUN cd /opt/tvb-inversion; \
     git pull; \
     cd mpr_sbi_tvb; \

@@ -4,11 +4,6 @@ from sbi_tvb.inference import TvbInference
 from sbi_tvb.prior import Prior
 from tvb.simulator.lab import *
 
-
-def set_sim_params(_sim: simulator.Simulator, params):
-    _sim.coupling.a = np.r_[params[0]]
-
-
 def build_simulator():
     sbi_tvb_path = os.path.dirname(os.path.dirname(sbi_tvb.__file__))
     weights = np.loadtxt(os.path.join(sbi_tvb_path, 'data_input_files', 'SC_Schaefer7NW100p_nolog10.txt'))
@@ -59,8 +54,7 @@ if __name__ == '__main__':
     sim = build_simulator()
     print("Build TvbInference object")
     tvb_inference = TvbInference(sim=sim,
-                                 priors=[Prior('coupling.a', 1.5, 3.2),
-                                         Prior('model.eta', -5, -1)])
+                                 priors=[Prior('coupling.a', 1.5, 3.2)])
 
     print("Sample priors")
     tvb_inference.sample_priors(num_simulations=10, num_workers=1)

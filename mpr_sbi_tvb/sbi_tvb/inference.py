@@ -25,9 +25,9 @@ class TvbInference:
 
     def __init__(self, sim: simulator.Simulator,
                  priors: List[Prior],
-                 summary_statistics=None):
+                 summary_statistics: Callable = None):
         self.simulator = sim
-        self.prior = self.build_prior(priors)
+        self.prior = self._build_prior(priors)
         self.priors_list = priors
         if summary_statistics is None:
             summary_statistics = self._calculate_summary_statistics
@@ -36,11 +36,10 @@ class TvbInference:
         self.theta = None
         self.x = None
         self.trained = False
-        self.set_params = False
+        self.preparing_for_sbi = False
         self.inf_posterior = None
 
-    def build_prior(self, priors: List[Prior]):
-        self.trained = False
+    def _build_prior(self, priors: List[Prior]):
         prior_min = None
         prior_max = None
         for prior in priors:
@@ -157,9 +156,8 @@ class TvbInference:
     #
     def run_sim(self, params):
         used_simulator = deepcopy(self.simulator)
-        if self.set_params:
-            print("Using params: {}".format(params))
-            self._set_sim_params(used_simulator, params)
+        print("Using params: {}".format(params))
+        self._set_sim_params(used_simulator, params)
         used_simulator.configure()
         (TemporalAverage_time, TemporalAverage_data), = self.backend().run_sim(used_simulator,
                                                                                simulation_length=used_simulator.simulation_length)
@@ -174,6 +172,8 @@ class TvbInference:
     # Define the wrapper such that you can iterate the simulator with SBI
     def _MPR_simulator_wrapper(self, params):
         params = np.asarray(params)
+        if self.preparing_for_sbi:
+            params = params[0]
         BOLD_r_sim = self.run_sim(params)
         return torch.as_tensor(self.summary_statistics(BOLD_r_sim.reshape(-1)))
 
@@ -183,9 +183,9 @@ class TvbInference:
     # The inference function produces a posterorior object, which contains a neural network for posterior density estimation
     def sample_priors(self, backend=NbMPRBackend, save_path=None, num_simulations=20, num_workers=1):
         self.backend = backend
-        self.set_params = False
+        self.preparing_for_sbi = True
         sim, prior = prepare_for_sbi(self._MPR_simulator_wrapper, self.prior)
-        self.set_params = True
+        self.preparing_for_sbi = False
         theta, x = simulate_for_sbi(
             simulator=sim,
             proposal=prior,
@@ -224,8 +224,9 @@ class TvbInference:
         if not isinstance(x, torch.Tensor):
             x = torch.as_tensor(x)
 
-        self.set_params = False
+        self.preparing_for_sbi = True
         sim, prior = prepare_for_sbi(self._MPR_simulator_wrapper, self.prior)
+        self.preparing_for_sbi = False
         inference = method_fun(prior)
         _ = inference.append_simulations(theta, x).train()
         inf_posterior = inference.build_posterior()
