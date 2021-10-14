@@ -1,8 +1,11 @@
+import os
+
 import numpy as np
 import sbi_tvb
 from sbi_tvb.inference import TvbInference
 from sbi_tvb.prior import Prior
 from tvb.simulator.lab import *
+
 
 def build_simulator():
     sbi_tvb_path = os.path.dirname(os.path.dirname(sbi_tvb.__file__))
@@ -62,7 +65,7 @@ if __name__ == '__main__':
     tvb_inference.train()
 
     print("Run observed simulation")
-    data = tvb_inference.run_sim([2.2])
+    data = tvb_inference.run_sim(2.2 * np.ones(1))
     print("Run Posterior")
     post_samples = tvb_inference.posterior(data=data)
     print(post_samples.mean())
