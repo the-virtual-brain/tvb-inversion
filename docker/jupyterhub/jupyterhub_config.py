@@ -1,21 +1,45 @@
 import os
+import sys
+import warnings
+
 from oauthenticator.generic import GenericOAuthenticator
 
 c = get_config()  # noqa
 
 # Oauth
 c.JupyterHub.authenticator_class = GenericOAuthenticator
+c.JupyterHub.services = [
+    {
+        'name': 'access-token-service',
+        'admin': True,
+        'url': 'http://127.0.0.1:8528',
+        'command': [sys.executable, '/srv/jupyterhub/service.py'],
+    }]
+if 'JUPYTERHUB_CRYPT_KEY' not in os.environ:
+    warnings.warn(
+        "Need JUPYTERHUB_CRYPT_KEY env for persistent auth_state.\n"
+        "    export JUPYTERHUB_CRYPT_KEY=$(openssl rand -hex 32)"
+    )
+    c.CryptKeeper.keys = [os.urandom(32)]
 c.OAuthenticator.client_id = os.environ['KEYCLOAK_CLIENT']
-c.OAuthenticator.scope = ["openid email roles team profile group"]
+c.OAuthenticator.scope = ["openid", "profile"]
 c.OAuthenticator.client_secret = os.environ['KEYCLOAK_CLIENT_SECRET']
 c.GenericOAuthenticator.login_service = os.environ['JUPYTERHUB_AUTH_NAME']
+c.GenericOAuthenticator.enable_auth_state = True
+c.GenericOAuthenticator.refresh_pre_spawn = True
 keycloak_server = os.environ['KEYCLOAK_SERVER']
-c.GenericOAuthenticator.token_url = "{}/auth/realms/TVB/protocol/openid-connect/token".format(keycloak_server)
-c.GenericOAuthenticator.authorize_url = "{}/auth/realms/TVB/protocol/openid-connect/auth".format(keycloak_server)
-c.GenericOAuthenticator.userdata_url = "{}/auth/realms/TVB/protocol/openid-connect/userinfo".format(
-    keycloak_server)
+keycloak_realm = os.environ['KEYCLOAK_REALM']
+c.GenericOAuthenticator.token_url = "{}/auth/realms/{}/protocol/openid-connect/token".format(keycloak_server,
+                                                                                             keycloak_realm)
+c.GenericOAuthenticator.authorize_url = "{}/auth/realms/{}/protocol/openid-connect/auth".format(keycloak_server,
+                                                                                                keycloak_realm)
+c.GenericOAuthenticator.userdata_url = "{}/auth/realms/{}/protocol/openid-connect/userinfo".format(keycloak_server,
+                                                                                                   keycloak_realm)
 c.GenericOAuthenticator.userdata_params = {'state': 'state'}
 c.GenericOAuthenticator.username_key = "preferred_username"
+
+if 'APPLICATION_NAME' in os.environ:
+    c.DockerSpawner.environment = {'APPLICATION_NAME': os.environ["APPLICATION_NAME"]}
 
 # launch with docker
 c.JupyterHub.spawner_class = "docker"
