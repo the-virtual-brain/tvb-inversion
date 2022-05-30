@@ -1,0 +1,33 @@
+pipeline {
+   agent any
+
+    environment {
+        FULL_DOCKER_IMAGE_NAME = 'thevirtualbrain/tvb-run:inv-jen'
+    }
+
+    stages {
+        stage ('Build tvb-run docker image') {
+            steps {
+                script {
+                    withDockerRegistry(credentialsId: 'tvb_on_docker_hub') {
+                        def dockerContext = "docker"
+                        def dockerFile = "${dockerContext}/Dockerfile-cluster"
+                        def dockerImage = docker.build("${FULL_DOCKER_IMAGE_NAME}'", "-f ${dockerFile} ${dockerContext}")
+                        dockerImage.push()
+                    }
+                }
+            }
+        }
+    }
+
+   post {
+        failure {
+            mail to: 'paula.prodan@codemart.ro',
+            subject: "Jenkins Pipeline ${currentBuild.fullDisplayName} failed",
+            body: """
+                Result: ${currentBuild.result}
+                Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'
+                Check console output at ${env.BUILD_URL}"""
+        }
+    }
+}
