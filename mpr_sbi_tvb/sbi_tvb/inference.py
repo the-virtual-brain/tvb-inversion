@@ -1,5 +1,7 @@
 import os
 from copy import deepcopy
+from subprocess import Popen, PIPE
+from time import sleep
 from typing import Callable, List
 
 import numpy as np
@@ -7,6 +9,7 @@ import sbi
 import sbi.utils as utils
 import scipy
 import torch
+from numpy import load
 from sbi.inference import prepare_for_sbi, simulate_for_sbi
 from sbi_tvb import analysis
 from sbi_tvb.prior import Prior
@@ -16,7 +19,7 @@ from scipy.stats import kurtosis
 from scipy.stats import moment
 from scipy.stats import skew
 from tvb.config.init.datatypes_registry import populate_datatypes_registry
-from tvb.core.neocom.h5 import store_ht
+from tvb.core.neocom.h5 import store_ht, load_ht
 from tvb.simulator.backend.nb_mpr import NbMPRBackend
 from tvb.simulator.lab import *
 from tvb.storage.storage_interface import StorageInterface
@@ -200,6 +203,8 @@ class TvbInference:
             self.backend = NbMPRBackend
 
         temporal_average_time, temporal_average_data = self.submit_simulation(self.backend, used_simulator)
+
+        # TODO: Are these adjustments generic?
         temporal_average_time *= 10  # rescale time
 
         R_TAVG = temporal_average_data[:, 0, :, 0]
@@ -221,17 +226,98 @@ class TvbInference:
                                                                             simulation_length=tvb_simulator.simulation_length)
         return temporal_average_time, temporal_average_data
 
+    def _prepare_unicore_job(self, tvb_simulator):
+        # "/home/data"
+        docker_dir_name = '/home/data'
+
+        SH_SCRIPT = 'launch_simulation_hpc.sh'
+        script_path = os.path.join(os.getcwd(), 'sbi_tvb', SH_SCRIPT)
+
+        HPC_PROJECT = 'ich012'
+
+        my_job = {
+            'Executable': os.path.basename(script_path),
+            'Arguments': [docker_dir_name, tvb_simulator.gid.hex],
+            'Project': HPC_PROJECT
+        }
+
+        return my_job, script_path
+
+    def _run_local_docker_job(self, dir_name, tvb_simulator):
+        docker_dir_name = '/home/data'
+        script_path = os.path.join(os.getcwd(), 'sbi_tvb', 'launch_simulation_docker.sh')
+        run_params = ['bash', script_path, dir_name, docker_dir_name, tvb_simulator.gid.hex]
+
+        launched_process = Popen(run_params, stdout=PIPE, stderr=PIPE)
+
+        subprocess_result = launched_process.communicate()
+        returned = launched_process.wait()
+
+        if returned != 0:
+            print(f"Failed to launch job")
+            return
+
+    def __retrieve_token(self):
+        try:
+            from clb_nb_utils import oauth as clb_oauth
+            token = clb_oauth.get_token()
+        except (ModuleNotFoundError, ConnectionError) as e:
+            print(f"Could not connect to EBRAINS to retrieve an auth token: {e}")
+            print("Will try to use the auth token defined by environment variable CLB_AUTH...")
+
+            token = os.environ.get('CLB_AUTH')
+            if token is None:
+                print("No auth token defined as environment variable CLB_AUTH! Please define one!")
+                raise Exception("Cannot connect to EBRAINS HPC without an auth token! Either run this on "
+                                             "Collab, or define the CLB_AUTH environment variable!")
+
+            print("Successfully retrieved the auth token from environment variable CLB_AUTH!")
+        return token
+
     def _submit_simulation_remote(self, backend, tvb_simulator):
         """
         Run TVB simulation remote on a HPC cluster.
         """
         import tempfile
+        import pyunicore.client as unicore_client
+
         dir_name = tempfile.mkdtemp(prefix='simulator-', dir=os.getcwd())
         print(f'Using dir {dir_name} for gid {tvb_simulator.gid}')
         store_ht(tvb_simulator, dir_name)
+
+        hpc_input_names = os.listdir(dir_name)
+        hpc_input_paths = list()
+        for input_name in hpc_input_names:
+            hpc_input_paths.append(os.path.join(dir_name, input_name))
+
+        job_config, script = self._prepare_unicore_job(tvb_simulator)
+        hpc_input_paths.append(script)
+
+        # TODO: get token and site_url generically?
+        token = self.__retrieve_token()
+        transport = unicore_client.Transport(token)
+        all_sites = unicore_client.get_sites(transport)
+        client = unicore_client.Client(transport, all_sites['DAINT-CSCS'])
+
+        job = client.new_job(job_description=job_config, inputs=hpc_input_paths)
+
+        # # TODO: monitor and wait for job
+        while job.is_running():
+            sleep(60)
+
+        # # TODO: stage out results, read them and return arrays
+        ts_name = 'time_series.npz'
+        ts_path = os.path.join(dir_name, ts_name)
+        wd = job.working_dir.listdir()
+        wd[ts_name].download(ts_path)
+
+        with load(ts_path) as data:
+            ts_data = data['data']
+            ts_time = data['time']
+
         print(f"TODO: Submit {backend} and {tvb_simulator} to HPC backend")
         StorageInterface.remove_folder(dir_name)
-        return None, None
+        return ts_time, ts_data
 
     def _MPR_simulator_wrapper(self, params):
         """
@@ -240,6 +326,23 @@ class TvbInference:
         params = np.asarray(params)
         BOLD_r_sim = self.run_sim(params)
         return torch.as_tensor(self.summary_statistics(BOLD_r_sim.reshape(-1)))
+
+    def _simulate_for_sbi(self, sim, prior, num_simulations, num_workers, save_path=None):
+        theta, x = simulate_for_sbi(
+            simulator=sim,
+            proposal=prior,
+            num_simulations=num_simulations,
+            num_workers=num_workers,
+            show_progress_bar=True,
+        )
+        print(f'Theta shape is {theta.shape}, x shape is {x.shape}')
+        self.theta = theta
+        self.x = x
+        if save_path is None:
+            save_path = os.getcwd()
+        mysavepath = os.path.join(save_path, TvbInference.SIMULATIONS_RESULTS)
+        np.savez(mysavepath, theta=theta, x=x)
+        return theta, x
 
     def sample_priors(self, backend=NbMPRBackend, save_path=None, num_simulations=20, num_workers=1):
         """
@@ -252,19 +355,7 @@ class TvbInference:
         self.preparing_for_sbi = True
         sim, prior = prepare_for_sbi(self._MPR_simulator_wrapper, self.prior)
         self.preparing_for_sbi = False
-        theta, x = simulate_for_sbi(
-            simulator=sim,
-            proposal=prior,
-            num_simulations=num_simulations,
-            num_workers=num_workers,
-            show_progress_bar=True,
-        )
-        self.theta = theta
-        self.x = x
-        if save_path is None:
-            save_path = os.getcwd()
-        mysavepath = os.path.join(save_path, TvbInference.SIMULATIONS_RESULTS)
-        np.savez(mysavepath, theta=theta, x=x)
+        theta, x = self._simulate_for_sbi(sim, prior, num_simulations, num_workers, save_path)
         return theta, x
 
     def train(self, method='SNPE', load_path=None):
