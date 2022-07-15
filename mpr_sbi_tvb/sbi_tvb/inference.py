@@ -10,9 +10,10 @@ import sbi.utils as utils
 import scipy
 import torch
 from numpy import load
-from sbi.inference import prepare_for_sbi, simulate_for_sbi
+from sbi.inference import prepare_for_sbi
 from sbi_tvb import analysis
 from sbi_tvb.prior import Prior
+from sbi_tvb.sbi_simulation import simulate_for_sbi
 from sbi_tvb.utils import custom_setattr
 from scipy import signal
 from scipy.stats import kurtosis
@@ -196,13 +197,15 @@ class TvbInference:
         params: list of inferred parameters. These params will be set on the TVB simulator
         """
         used_simulator = deepcopy(self.simulator)
-        if not self.preparing_for_sbi:
-            print("Using params: {}".format(params))
-            self._set_sim_params(used_simulator, params)
         if self.backend is None:
             self.backend = NbMPRBackend
 
-        temporal_average_time, temporal_average_data = self.submit_simulation(self.backend, used_simulator)
+        if not self.preparing_for_sbi:
+            print("Using params: {}".format(params))
+            self._set_sim_params(used_simulator, params)
+            temporal_average_time, temporal_average_data = self.submit_simulation(self.backend, used_simulator)
+        else:
+            temporal_average_time, temporal_average_data = self._submit_simulation_local(self.backend, used_simulator)
 
         # TODO: Are these adjustments generic?
         temporal_average_time *= 10  # rescale time
@@ -274,16 +277,27 @@ class TvbInference:
             print("Successfully retrieved the auth token from environment variable CLB_AUTH!")
         return token
 
-    def _submit_simulation_remote(self, backend, tvb_simulator):
-        """
-        Run TVB simulation remote on a HPC cluster.
-        """
-        import tempfile
-        import pyunicore.client as unicore_client
+    def _local_docker_run(self, dir_name, tvb_simulator):
+        run_params = ['sh', '/Users/pipeline/WORK/TVB_GIT/tvb-inversion/tvb-inversion/mpr_sbi_tvb/sbi_tvb/launch_simulation_docker.sh', dir_name, tvb_simulator.gid.hex]
 
-        dir_name = tempfile.mkdtemp(prefix='simulator-', dir=os.getcwd())
-        print(f'Using dir {dir_name} for gid {tvb_simulator.gid}')
-        store_ht(tvb_simulator, dir_name)
+        launched_process = Popen(run_params, stdout=PIPE, stderr=PIPE)
+
+        subprocess_result = launched_process.communicate()
+        print(f"Finished with launch of operation")
+        returned = launched_process.wait()
+
+        if returned != 0:
+            print(f"Operation suffered fatal failure! {subprocess_result}")
+
+        del launched_process
+
+        ts_name = 'time_series.npz'
+        ts_path = os.path.join(dir_name, ts_name)
+
+        return ts_path
+
+    def _pyunicore_run(self, dir_name, tvb_simulator):
+        import pyunicore.client as unicore_client
 
         hpc_input_names = os.listdir(dir_name)
         hpc_input_paths = list()
@@ -300,9 +314,11 @@ class TvbInference:
         client = unicore_client.Client(transport, all_sites['DAINT-CSCS'])
 
         job = client.new_job(job_description=job_config, inputs=hpc_input_paths)
+        print(job.working_dir.properties['mountPoint'])
 
         # # TODO: monitor and wait for job
         while job.is_running():
+            print(job.properties['status'])
             sleep(60)
 
         # # TODO: stage out results, read them and return arrays
@@ -310,13 +326,30 @@ class TvbInference:
         ts_path = os.path.join(dir_name, ts_name)
         wd = job.working_dir.listdir()
         wd[ts_name].download(ts_path)
+        print(f'Downloaded TS result as {ts_path}')
+
+        return ts_path
+
+    def _submit_simulation_remote(self, backend, tvb_simulator):
+        """
+        Run TVB simulation remote on a HPC cluster.
+        """
+        import tempfile
+
+        dir_name = tempfile.mkdtemp(prefix='simulator-', dir=os.getcwd())
+        print(f'Using dir {dir_name} for gid {tvb_simulator.gid}')
+        populate_datatypes_registry()
+
+        store_ht(tvb_simulator, dir_name)
+
+        ts_path = self._pyunicore_run(dir_name, tvb_simulator)
 
         with load(ts_path) as data:
             ts_data = data['data']
             ts_time = data['time']
 
         print(f"TODO: Submit {backend} and {tvb_simulator} to HPC backend")
-        StorageInterface.remove_folder(dir_name)
+        # StorageInterface.remove_folder(dir_name)
         return ts_time, ts_data
 
     def _MPR_simulator_wrapper(self, params):
