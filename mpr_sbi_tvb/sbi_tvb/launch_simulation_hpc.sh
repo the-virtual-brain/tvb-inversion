@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #echo "Pulling tvb-run:inv docker image"
-module load sarus && sarus pull thevirtualbrain/tvb-run:inv-jen
+module load sarus && sarus pull thevirtualbrain/tvb-run:inv-sbi
 
 start=$SECONDS
 

@@ -322,13 +322,13 @@ class TvbInference:
             sleep(60)
 
         # # TODO: stage out results, read them and return arrays
-        ts_name = 'time_series.npz'
-        ts_path = os.path.join(dir_name, ts_name)
+        result_name = TvbInference.SIMULATIONS_RESULTS
+        result_path = os.path.join(dir_name, result_name)
         wd = job.working_dir.listdir()
-        wd[ts_name].download(ts_path)
-        print(f'Downloaded TS result as {ts_path}')
+        wd[result_name].download(result_path)
+        print(f'Downloaded sampling result as {result_path}')
 
-        return ts_path
+        return result_path
 
     def _submit_simulation_remote(self, backend, tvb_simulator):
         """
@@ -351,6 +351,27 @@ class TvbInference:
         print(f"TODO: Submit {backend} and {tvb_simulator} to HPC backend")
         # StorageInterface.remove_folder(dir_name)
         return ts_time, ts_data
+
+    def sample_priors_remote(self, backend=NbMPRBackend, save_path=None, num_simulations=20, num_workers=1):
+        used_simulator = deepcopy(self.simulator)
+        if self.backend is None:
+            self.backend = NbMPRBackend
+
+        import tempfile
+
+        dir_name = tempfile.mkdtemp(prefix='simulator-', dir=os.getcwd())
+        print(f'Using dir {dir_name} for gid {used_simulator.gid}')
+        populate_datatypes_registry()
+
+        store_ht(used_simulator, dir_name)
+
+        result = self._pyunicore_run(dir_name, used_simulator)
+
+        with load(result) as f:
+            theta = f['theta']
+            x = f['x']
+
+        return theta, x
 
     def _MPR_simulator_wrapper(self, params):
         """

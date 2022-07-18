@@ -59,12 +59,12 @@ if __name__ == '__main__':
     sim = build_simulator()
     print("Build TvbInference object")
     tvb_inference = TvbInference(sim=sim,
-                                 priors=[Prior('coupling.a', 1.5, 3.2)], remote=True)
+                                 priors=[Prior('coupling.a', 1.5, 3.2)])
 
     print("Sample priors")
     start = time.time()
 
-    tvb_inference.sample_priors(num_simulations=10, num_workers=1)
+    tvb_inference.sample_priors_remote(num_simulations=10, num_workers=1)
 
     end = time.time()
     print("Time elapsed for sim:", end - start)
