@@ -27,7 +27,7 @@ RUN cd /opt/tvb-root; \
 RUN /opt/conda/envs/tvb-run/bin/pip uninstall --y pyAesCrypt numba
 RUN /opt/conda/envs/tvb-run/bin/pip install pyAesCrypt numba
 
-ARG TOKEN
+ARG TOKEN="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"
 ARG abc
 RUN cd /opt; \
     git clone --depth 1 --branch remote_sbi https://$TOKEN@github.com/the-virtual-brain/tvb-inversion.git
