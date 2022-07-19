@@ -390,12 +390,14 @@ class TvbInference:
             show_progress_bar=True,
         )
         print(f'Theta shape is {theta.shape}, x shape is {x.shape}')
-        self.theta = theta
-        self.x = x
+        # self.theta = theta
+        # self.x = x
         if save_path is None:
             save_path = os.getcwd()
         mysavepath = os.path.join(save_path, TvbInference.SIMULATIONS_RESULTS)
+        print(f'Saving results at {mysavepath}...')
         np.savez(mysavepath, theta=theta, x=x)
+        print(f'Results saved!')
         return theta, x
 
     def sample_priors(self, backend=NbMPRBackend, save_path=None, num_simulations=20, num_workers=1):

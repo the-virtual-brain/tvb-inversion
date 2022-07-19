@@ -44,7 +44,7 @@ def sample_priors(simulator_gid):
                                  priors=[Prior('coupling.a', 1.5, 3.2)])
 
     print("Sample priors")
-    tvb_inference.sample_priors(num_simulations=10, num_workers=10)
+    tvb_inference.sample_priors(num_simulations=10, num_workers=5)
 
 
 if __name__ == "__main__":
