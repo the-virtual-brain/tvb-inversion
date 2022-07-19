@@ -32,7 +32,7 @@ RUN cd /opt; \
     git clone --depth 1 --branch remote_sbi https://$TOKEN@github.com/the-virtual-brain/tvb-inversion.git
 
 #ARG CACHE=now
-ARG def
+ARG ghi
 RUN cd /opt/tvb-inversion; \
     git pull; \
     cd mpr_sbi_tvb; \
