@@ -229,7 +229,7 @@ class TvbInference:
                                                                             simulation_length=tvb_simulator.simulation_length)
         return temporal_average_time, temporal_average_data
 
-    def _prepare_unicore_job(self, tvb_simulator):
+    def _prepare_unicore_job(self, tvb_simulator, num_simulations, num_workers):
         # "/home/data"
         docker_dir_name = '/home/data'
 
@@ -240,7 +240,7 @@ class TvbInference:
 
         my_job = {
             'Executable': os.path.basename(script_path),
-            'Arguments': [docker_dir_name, tvb_simulator.gid.hex],
+            'Arguments': [docker_dir_name, tvb_simulator.gid.hex, num_simulations, num_workers],
             'Project': HPC_PROJECT
         }
 
@@ -296,7 +296,7 @@ class TvbInference:
 
         return ts_path
 
-    def _pyunicore_run(self, dir_name, tvb_simulator):
+    def _pyunicore_run(self, dir_name, tvb_simulator, num_simulations, num_workers):
         import pyunicore.client as unicore_client
 
         hpc_input_names = os.listdir(dir_name)
@@ -304,7 +304,7 @@ class TvbInference:
         for input_name in hpc_input_names:
             hpc_input_paths.append(os.path.join(dir_name, input_name))
 
-        job_config, script = self._prepare_unicore_job(tvb_simulator)
+        job_config, script = self._prepare_unicore_job(tvb_simulator, num_simulations, num_workers)
         hpc_input_paths.append(script)
 
         # TODO: get token and site_url generically?
@@ -352,7 +352,7 @@ class TvbInference:
         # StorageInterface.remove_folder(dir_name)
         return ts_time, ts_data
 
-    def sample_priors_remote(self, backend=NbMPRBackend, save_path=None, num_simulations=20, num_workers=1):
+    def sample_priors_remote(self, num_simulations=20, num_workers=1):
         used_simulator = deepcopy(self.simulator)
         if self.backend is None:
             self.backend = NbMPRBackend
@@ -365,11 +365,14 @@ class TvbInference:
 
         store_ht(used_simulator, dir_name)
 
-        result = self._pyunicore_run(dir_name, used_simulator)
+        result = self._pyunicore_run(dir_name, used_simulator, num_simulations, num_workers)
 
         with load(result) as f:
             theta = f['theta']
             x = f['x']
+
+        self.theta = theta
+        self.x = x
 
         return theta, x
 

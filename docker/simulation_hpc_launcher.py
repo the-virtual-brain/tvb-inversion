@@ -27,7 +27,7 @@ def run_simulation(simulator_gid):
     numpy.savez(mysavepath, data=temporal_average_data, time=temporal_average_time)
 
 
-def sample_priors(simulator_gid):
+def sample_priors(simulator_gid, num_simulations, num_workers):
     print("Load simulator...")
     data_folder = "/home/data"
 
@@ -44,10 +44,13 @@ def sample_priors(simulator_gid):
                                  priors=[Prior('coupling.a', 1.5, 3.2)])
 
     print("Sample priors")
-    tvb_inference.sample_priors(num_simulations=10, num_workers=5, save_path=data_folder)
+    tvb_inference.sample_priors(num_simulations=num_simulations, num_workers=num_workers, save_path=data_folder)
 
 
 if __name__ == "__main__":
     simulator_gid = sys.argv[1]
+    num_simulations = int(sys.argv[2])
+    num_workers = int(sys.argv[3])
+
     # run_simulation(simulator_gid)
-    sample_priors(simulator_gid)
+    sample_priors(simulator_gid, num_simulations, num_workers)
