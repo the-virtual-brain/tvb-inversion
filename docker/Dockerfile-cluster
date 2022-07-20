@@ -32,10 +32,12 @@ RUN cd /opt; \
     git clone --depth 1 --branch remote_sbi https://$TOKEN@github.com/the-virtual-brain/tvb-inversion.git
 
 #ARG CACHE=now
-ARG ghi
+ARG hjk
 RUN cd /opt/tvb-inversion; \
     git pull; \
     cd mpr_sbi_tvb; \
     /opt/conda/envs/tvb-run/bin/python setup.py install
+
+COPY simulation_hpc_launcher.py /opt/tvb-root/framework_tvb/tvb/core
 
 WORKDIR /opt/tvb-inversion/mpr_sbi_tvb
