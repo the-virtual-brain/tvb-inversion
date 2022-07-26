@@ -1,7 +1,5 @@
-import os
+import tempfile
 from copy import deepcopy
-from subprocess import Popen, PIPE
-from time import sleep
 from typing import Callable, List
 
 import numpy as np
@@ -10,20 +8,18 @@ import sbi.utils as utils
 import scipy
 import torch
 from numpy import load
-from sbi.inference import prepare_for_sbi
-from sbi_tvb import analysis
+from sbi.inference import prepare_for_sbi, simulate_for_sbi
 from sbi_tvb.prior import Prior
-from sbi_tvb.sbi_simulation import simulate_for_sbi
 from sbi_tvb.utils import custom_setattr
 from scipy import signal
-from scipy.stats import kurtosis
-from scipy.stats import moment
-from scipy.stats import skew
+
 from tvb.config.init.datatypes_registry import populate_datatypes_registry
 from tvb.core.neocom.h5 import store_ht, load_ht
 from tvb.simulator.backend.nb_mpr import NbMPRBackend
 from tvb.simulator.lab import *
-from tvb.storage.storage_interface import StorageInterface
+
+from mpr_sbi_tvb.sbi_tvb.features import _calculate_summary_statistics
+from mpr_sbi_tvb.sbi_tvb.sampler import UnicoreSampler
 
 
 class TvbInference:
@@ -52,7 +48,7 @@ class TvbInference:
         self.prior = self._build_prior(priors)
         self.priors_list = priors
         if summary_statistics is None:
-            summary_statistics = self._calculate_summary_statistics
+            summary_statistics = _calculate_summary_statistics
         self.summary_statistics = summary_statistics
         self.backend = None
         self.theta = None
@@ -88,97 +84,6 @@ class TvbInference:
                 prior_max = np.append(prior_max, max_value)
 
         return utils.torchutils.BoxUniform(low=torch.as_tensor(prior_min), high=torch.as_tensor(prior_max))
-
-    def _calculate_summary_statistics(self, x, features=None):
-        """
-        Calculate summary statistics via numpy and scipy.
-        The function here extracts 10 momenta for each bold channel, FC mean, FCD mean, variance
-        difference and standard deviation of FC stream.
-        Check that you can compute FCD features via proper FCD packages
-
-        Parameters
-        ----------
-        x : output of the simulator
-
-        Returns
-        -------
-        np.array, summary statistics
-        """
-        if features is None:
-            features = ['higher_moments', 'FC_corr', 'FCD_corr']
-        nn = self.simulator.connectivity.weights.shape[0]
-
-        X = x.reshape(nn, int(x.shape[0] / nn))
-
-        n_summary = 16 * nn + (nn * nn) + 300 * 300
-        bold_dt = 2250
-
-        sum_stats_vec = np.concatenate((np.mean(X, axis=1),
-                                        np.median(X, axis=1),
-                                        np.std(X, axis=1),
-                                        skew(X, axis=1),
-                                        kurtosis(X, axis=1),
-                                        ))
-
-        for item in features:
-
-            if item == 'higher_moments':
-                sum_stats_vec = np.concatenate((sum_stats_vec,
-                                                moment(X, moment=2, axis=1),
-                                                moment(X, moment=3, axis=1),
-                                                moment(X, moment=4, axis=1),
-                                                moment(X, moment=5, axis=1),
-                                                moment(X, moment=6, axis=1),
-                                                moment(X, moment=7, axis=1),
-                                                moment(X, moment=8, axis=1),
-                                                moment(X, moment=9, axis=1),
-                                                moment(X, moment=10, axis=1),
-                                                ))
-
-            if item == 'FC_corr':
-                FC = np.corrcoef(X)
-                off_diag_sum_FC = np.sum(FC) - np.trace(FC)
-                print('FC_Corr')
-                sum_stats_vec = np.concatenate((sum_stats_vec,
-                                                np.array([off_diag_sum_FC]),
-                                                ))
-
-            if item == 'FCD_corr':
-                win_FCD = 40e3
-                NHALF = int(nn / 2)
-
-                mask_inter = np.zeros([nn, nn])
-                mask_inter[0:NHALF, NHALF:NHALF * 2] = 1
-                mask_inter[NHALF:NHALF * 2, 0:NHALF] = 1
-
-                bold_summ_stat = X.T
-
-                FCD, fc_stack, speed_fcd = analysis.compute_fcd(bold_summ_stat, win_len=int(win_FCD / bold_dt),
-                                                                win_sp=1)
-                fcd_inter, fc_stack_inter, _ = analysis.compute_fcd_filt(bold_summ_stat, mask_inter,
-                                                                         win_len=int(win_FCD / bold_dt), win_sp=1)
-
-                FCD_TRIU = np.triu(FCD, k=1)
-
-                FCD_INTER_TRIU = np.triu(fcd_inter, k=1)
-
-                FCD_MEAN = np.mean(FCD_TRIU)
-                FCD_VAR = np.var(FCD_TRIU)
-                FCD_OSC = np.std(fc_stack)
-                FCD_OSC_INTER = np.std(fc_stack_inter)
-
-                FCD_MEAN_INTER = np.mean(FCD_INTER_TRIU)
-                FCD_VAR_INTER = np.var(FCD_INTER_TRIU)
-
-                DIFF_VAR = FCD_VAR_INTER - FCD_VAR
-
-                sum_stats_vec = np.concatenate((sum_stats_vec,
-                                                np.array([FCD_MEAN]), np.array([FCD_OSC_INTER]), np.array([DIFF_VAR])
-                                                ))
-
-        sum_stats_vec = sum_stats_vec[0:n_summary]
-
-        return sum_stats_vec
 
     def _set_sim_params(self, sim: simulator.Simulator, params):
         index = 0
@@ -229,107 +134,6 @@ class TvbInference:
                                                                             simulation_length=tvb_simulator.simulation_length)
         return temporal_average_time, temporal_average_data
 
-    def _prepare_unicore_job(self, tvb_simulator, num_simulations, num_workers):
-        # "/home/data"
-        docker_dir_name = '/home/data'
-
-        SH_SCRIPT = 'launch_simulation_hpc.sh'
-        script_path = os.path.join(os.getcwd(), 'sbi_tvb', SH_SCRIPT)
-
-        HPC_PROJECT = 'ich012'
-
-        my_job = {
-            'Executable': os.path.basename(script_path),
-            'Arguments': [docker_dir_name, tvb_simulator.gid.hex, num_simulations, num_workers],
-            'Project': HPC_PROJECT
-        }
-
-        return my_job, script_path
-
-    def _run_local_docker_job(self, dir_name, tvb_simulator):
-        docker_dir_name = '/home/data'
-        script_path = os.path.join(os.getcwd(), 'sbi_tvb', 'launch_simulation_docker.sh')
-        run_params = ['bash', script_path, dir_name, docker_dir_name, tvb_simulator.gid.hex]
-
-        launched_process = Popen(run_params, stdout=PIPE, stderr=PIPE)
-
-        subprocess_result = launched_process.communicate()
-        returned = launched_process.wait()
-
-        if returned != 0:
-            print(f"Failed to launch job")
-            return
-
-    def __retrieve_token(self):
-        try:
-            from clb_nb_utils import oauth as clb_oauth
-            token = clb_oauth.get_token()
-        except (ModuleNotFoundError, ConnectionError) as e:
-            print(f"Could not connect to EBRAINS to retrieve an auth token: {e}")
-            print("Will try to use the auth token defined by environment variable CLB_AUTH...")
-
-            token = os.environ.get('CLB_AUTH')
-            if token is None:
-                print("No auth token defined as environment variable CLB_AUTH! Please define one!")
-                raise Exception("Cannot connect to EBRAINS HPC without an auth token! Either run this on "
-                                             "Collab, or define the CLB_AUTH environment variable!")
-
-            print("Successfully retrieved the auth token from environment variable CLB_AUTH!")
-        return token
-
-    def _local_docker_run(self, dir_name, tvb_simulator):
-        run_params = ['sh', '/Users/pipeline/WORK/TVB_GIT/tvb-inversion/tvb-inversion/mpr_sbi_tvb/sbi_tvb/launch_simulation_docker.sh', dir_name, tvb_simulator.gid.hex]
-
-        launched_process = Popen(run_params, stdout=PIPE, stderr=PIPE)
-
-        subprocess_result = launched_process.communicate()
-        print(f"Finished with launch of operation")
-        returned = launched_process.wait()
-
-        if returned != 0:
-            print(f"Operation suffered fatal failure! {subprocess_result}")
-
-        del launched_process
-
-        ts_name = 'time_series.npz'
-        ts_path = os.path.join(dir_name, ts_name)
-
-        return ts_path
-
-    def _pyunicore_run(self, dir_name, tvb_simulator, num_simulations, num_workers):
-        import pyunicore.client as unicore_client
-
-        hpc_input_names = os.listdir(dir_name)
-        hpc_input_paths = list()
-        for input_name in hpc_input_names:
-            hpc_input_paths.append(os.path.join(dir_name, input_name))
-
-        job_config, script = self._prepare_unicore_job(tvb_simulator, num_simulations, num_workers)
-        hpc_input_paths.append(script)
-
-        # TODO: get token and site_url generically?
-        token = self.__retrieve_token()
-        transport = unicore_client.Transport(token)
-        all_sites = unicore_client.get_sites(transport)
-        client = unicore_client.Client(transport, all_sites['DAINT-CSCS'])
-
-        job = client.new_job(job_description=job_config, inputs=hpc_input_paths)
-        print(job.working_dir.properties['mountPoint'])
-
-        # # TODO: monitor and wait for job
-        while job.is_running():
-            print(job.properties['status'])
-            sleep(60)
-
-        # # TODO: stage out results, read them and return arrays
-        result_name = TvbInference.SIMULATIONS_RESULTS
-        result_path = os.path.join(dir_name, result_name)
-        wd = job.working_dir.listdir()
-        wd[result_name].download(result_path)
-        print(f'Downloaded sampling result as {result_path}')
-
-        return result_path
-
     def _submit_simulation_remote(self, backend, tvb_simulator):
         """
         Run TVB simulation remote on a HPC cluster.
@@ -352,12 +156,8 @@ class TvbInference:
         # StorageInterface.remove_folder(dir_name)
         return ts_time, ts_data
 
-    def sample_priors_remote(self, num_simulations=20, num_workers=1):
+    def sample_priors_remote(self, num_simulations, num_workers, project):
         used_simulator = deepcopy(self.simulator)
-        if self.backend is None:
-            self.backend = NbMPRBackend
-
-        import tempfile
 
         dir_name = tempfile.mkdtemp(prefix='simulator-', dir=os.getcwd())
         print(f'Using dir {dir_name} for gid {used_simulator.gid}')
@@ -365,7 +165,8 @@ class TvbInference:
 
         store_ht(used_simulator, dir_name)
 
-        result = self._pyunicore_run(dir_name, used_simulator, num_simulations, num_workers)
+        remote_sampler = UnicoreSampler(num_simulations, num_workers, project)
+        result = remote_sampler.run(dir_name, used_simulator, self.SIMULATIONS_RESULTS)
 
         with load(result) as f:
             theta = f['theta']
