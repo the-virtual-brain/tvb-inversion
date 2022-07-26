@@ -37,6 +37,4 @@ RUN cd /opt/tvb-inversion; \
     cd mpr_sbi_tvb; \
     /opt/conda/envs/tvb-run/bin/python setup.py install
 
-COPY simulation_hpc_launcher.py /opt/tvb-root/framework_tvb/tvb/core
-
-WORKDIR /opt/tvb-inversion/mpr_sbi_tvb
+WORKDIR /opt/tvb-inversion/docker

@@ -3,6 +3,7 @@ pipeline {
 
     environment {
         FULL_DOCKER_IMAGE_NAME = 'thevirtualbrain/tvb-run:inv-sbi'
+        CACHE_INV_RAND = "${Math.abs(new Random().nextInt(50))}"
     }
 
     stages {
@@ -12,7 +13,7 @@ pipeline {
                     withDockerRegistry(credentialsId: 'tvb_on_docker_hub') {
                         def dockerContext = "docker"
                         def dockerFile = "${dockerContext}/Dockerfile-run"
-                        def dockerImage = docker.build("${FULL_DOCKER_IMAGE_NAME}", "--build-arg TOKEN='${GIT_TOKEN}' -f ${dockerFile} ${dockerContext}")
+                        def dockerImage = docker.build("${FULL_DOCKER_IMAGE_NAME}", "--build-arg TOKEN='${GIT_TOKEN}' --build-arg CACHE_INV='${CACHE_INV_RAND}' -f ${dockerFile} ${dockerContext}")
                         dockerImage.push()
                     }
                 }
