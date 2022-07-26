@@ -1,4 +1,4 @@
-# Build notebook image: docker build -f Dockerfile-run -t tvb-inv-cluster --build-arg CACHE="$(date)" --build-arg TOKEN=<github_security_token> .
+# Build notebook image: docker build -f Dockerfile-run -t thevirtualbrain/tvb-run:inv-sbi --build-arg CACHE="$(date)" --build-arg TOKEN=<github_security_token> .
 FROM continuumio/miniconda3:4.12.0
 
 RUN apt-get -y update && apt-get -y install build-essential gcc
@@ -27,12 +27,11 @@ RUN cd /opt/tvb-root; \
 RUN /opt/conda/envs/tvb-run/bin/pip uninstall --y pyAesCrypt numba
 RUN /opt/conda/envs/tvb-run/bin/pip install pyAesCrypt numba
 
-ARG TOKEN="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"
+ARG TOKEN=github_security_token
 RUN cd /opt; \
     git clone --depth 1 --branch remote_sbi https://$TOKEN@github.com/the-virtual-brain/tvb-inversion.git
 
-#ARG CACHE=now
-ARG def
+ARG CACHE=now
 RUN cd /opt/tvb-inversion; \
     git pull; \
     cd mpr_sbi_tvb; \
