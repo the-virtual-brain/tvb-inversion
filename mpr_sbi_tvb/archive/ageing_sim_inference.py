@@ -28,8 +28,8 @@ rcParams['figure.figsize'] = 15, 6
 ############################
 
 sbi_tvb_path = os.path.dirname(os.path.dirname(sbi_tvb.__file__))
-bold = np.loadtxt(os.path.join(sbi_tvb_path, 'data_input_files', 'meanTS_GS_bptf_Schaefer100_7NW.txt'))
-weights = np.loadtxt(os.path.join(sbi_tvb_path, 'data_input_files', 'SC_Schaefer7NW100p_nolog10.txt'))
+bold = np.loadtxt(os.path.join(sbi_tvb_path, '../data_input_files', 'meanTS_GS_bptf_Schaefer100_7NW.txt'))
+weights = np.loadtxt(os.path.join(sbi_tvb_path, '../data_input_files', 'SC_Schaefer7NW100p_nolog10.txt'))
 BOLD_TR = 2250
 
 Res_dir = 'results'
@@ -286,7 +286,7 @@ def myinfer(
     _ = inference.append_simulations(theta, x).train()
     posterior = inference.build_posterior()
 
-    mysavepath = os.path.join(Res_dir, 'inference_theta_jn_sim.npz')
+    mysavepath = os.path.join(Res_dir, '../inference_theta_jn_sim.npz')
     np.savez(mysavepath, theta=theta, x=x)
 
     return posterior
@@ -353,7 +353,7 @@ if __name__ == '__main__':
     posterior_samples = posterior.sample((num_samples,), obs_summary_statistics, sample_with_mcmc=True).numpy()
     mysavepath = os.path.join(Res_dir, 'posterior_samples_jn_sim.npz')
     np.savez(mysavepath, posterior_samples=posterior_samples)
-    mysavepath = os.path.join(Res_dir, 'inference_theta_jn_sim.npz')
+    mysavepath = os.path.join(Res_dir, '../inference_theta_jn_sim.npz')
     myinference = np.load(mysavepath)
     theta = myinference['theta']
     x = myinference['x']
