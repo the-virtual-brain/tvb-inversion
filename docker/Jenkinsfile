@@ -12,7 +12,7 @@ pipeline {
                     withDockerRegistry(credentialsId: 'tvb_on_docker_hub') {
                         def dockerContext = "docker"
                         def dockerFile = "${dockerContext}/Dockerfile-run"
-                        def dockerImage = docker.build("${FULL_DOCKER_IMAGE_NAME}", "-f ${dockerFile} ${dockerContext}")
+                        def dockerImage = docker.build("${FULL_DOCKER_IMAGE_NAME}", "--build-arg TOKEN='${GIT_TOKEN}' -f ${dockerFile} ${dockerContext}")
                         dockerImage.push()
                     }
                 }
