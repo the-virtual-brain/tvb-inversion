@@ -4,8 +4,6 @@ FROM continuumio/miniconda3:4.12.0
 RUN apt-get -y update && apt-get -y install build-essential gcc
 
 USER root
-RUN cd /opt; \
-    git clone --depth 1 --branch master https://github.com/popaula937/tvb-root.git
 
 RUN conda update -n base -c defaults conda
 
@@ -13,7 +11,9 @@ RUN conda create -y --name tvb-run python=3.8
 RUN /opt/conda/envs/tvb-run/bin/pip install --upgrade pip
 RUN /opt/conda/envs/tvb-run/bin/pip install sbi==0.17.2
 
-COPY simulation_hpc_launcher.py /opt/tvb-root/framework_tvb/tvb/core
+ARG CACHE_TVB=now
+RUN cd /opt; \
+    git clone --depth 1 --branch master https://github.com/popaula937/tvb-root.git
 
 RUN cd /opt/tvb-root; \
     git pull; \
@@ -31,7 +31,7 @@ ARG TOKEN=github_security_token
 RUN cd /opt; \
     git clone --depth 1 --branch remote_sbi https://$TOKEN@github.com/the-virtual-brain/tvb-inversion.git
 
-ARG CACHE=now
+ARG CACHE_INV=now
 RUN cd /opt/tvb-inversion; \
     git pull; \
     cd mpr_sbi_tvb; \
