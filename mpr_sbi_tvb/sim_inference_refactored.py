@@ -43,7 +43,7 @@ def build_simulator():
 
     sim = simulator.Simulator(model=model,
                               connectivity=conn,
-                              coupling=coupling.Scaling(
+                              coupling=coupling.Linear(
                                   a=np.r_[2.45]
                               ),
                               conduction_speed=cond_speed,
