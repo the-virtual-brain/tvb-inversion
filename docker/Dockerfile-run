@@ -1,4 +1,4 @@
-# Build notebook image: docker build -f Dockerfile-cluster -t tvb-inv-cluster --build-arg CACHE="$(date)" --build-arg TOKEN=<github_security_token> .
+# Build notebook image: docker build -f Dockerfile-run -t tvb-inv-cluster --build-arg CACHE="$(date)" --build-arg TOKEN=<github_security_token> .
 FROM continuumio/miniconda3:4.12.0
 
 RUN apt-get -y update && apt-get -y install build-essential gcc
