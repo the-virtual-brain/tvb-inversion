@@ -47,7 +47,7 @@ class UnicoreSampler(DockerLocalSampler):
             'Arguments': [self.DOCKER_DATA_DIR, tvb_simulator.gid.hex, self.num_simulations, self.num_workers],
             'Project': self.project,
             'Name': 'TVB-INVERSION_{}_{}'.format(self.num_simulations, self.num_workers),
-            'Resources': {'Nodes': '1', 'Memory': '32G', 'NodeConstraints': 'mc', 'Runtime': '2h'},
+            'Resources': {'Nodes': '1', 'Memory': '32GB', 'NodeConstraints': 'mc', 'Runtime': '2h'},
         }
 
         return my_job
