@@ -42,13 +42,12 @@ class UnicoreSampler(DockerLocalSampler):
         return hpc_input_paths
 
     def _prepare_unicore_job(self, tvb_simulator):
-        # TODO: specify resources in pyunicore instead of srun
         my_job = {
             'Executable': self.HPC_SCRIPT,
             'Arguments': [self.DOCKER_DATA_DIR, tvb_simulator.gid.hex, self.num_simulations, self.num_workers],
             'Project': self.project,
             'Name': 'TVB-INVERSION_{}_{}'.format(self.num_simulations, self.num_workers),
-            # 'Resources': {'Nodes': '1', 'Memory': '32G', 'NodeConstraints': 'mc', 'Runtime': '2h'},
+            'Resources': {'Nodes': '1', 'Memory': '32G', 'NodeConstraints': 'mc', 'Runtime': '2h'},
         }
 
         return my_job
