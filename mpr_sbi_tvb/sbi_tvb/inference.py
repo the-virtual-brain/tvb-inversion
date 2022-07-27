@@ -1,26 +1,23 @@
+import os
 import tempfile
 from copy import deepcopy
 from typing import Callable, List
-
 import numpy as np
-import sbi
-import sbi.utils as utils
+import sbi.inference as sbi_inference
+from sbi.utils import torchutils
 import scipy
 import torch
-from numpy import load
-from sbi.inference import prepare_for_sbi, simulate_for_sbi
-from sbi_tvb.prior import Prior
-from sbi_tvb.utils import custom_setattr
-from scipy import signal
 
 from tvb.config.init.datatypes_registry import populate_datatypes_registry
 from tvb.core.neocom.h5 import store_ht
 from tvb.simulator.backend.nb_mpr import NbMPRBackend
-from tvb.simulator.lab import *
+from tvb.simulator.lab import simulator
 
-from mpr_sbi_tvb.sbi_tvb.features import _calculate_summary_statistics
-from mpr_sbi_tvb.sbi_tvb.sampler.local_samplers import LocalSampler
-from mpr_sbi_tvb.sbi_tvb.sampler.remote_sampler import UnicoreSampler
+from sbi_tvb.features import FeaturesEnum, SummaryStatistics
+from sbi_tvb.prior import Prior
+from sbi_tvb.sampler.local_samplers import LocalSampler
+from sbi_tvb.sampler.remote_sampler import UnicoreSampler
+from sbi_tvb.utils import custom_setattr
 
 
 class TvbInference:
@@ -29,7 +26,7 @@ class TvbInference:
 
     def __init__(self, sim: simulator.Simulator,
                  priors: List[Prior],
-                 summary_statistics: Callable = None,
+                 features: List[FeaturesEnum] = None,
                  remote: bool = False):
         """
         Parameters
@@ -48,9 +45,7 @@ class TvbInference:
         self.simulator = sim
         self.prior = self._build_prior(priors)
         self.priors_list = priors
-        if summary_statistics is None:
-            summary_statistics = _calculate_summary_statistics
-        self.summary_statistics = summary_statistics
+        self.features = features
         self.backend = None
         self.theta = None
         self.x = None
@@ -84,7 +79,7 @@ class TvbInference:
             else:
                 prior_max = np.append(prior_max, max_value)
 
-        return utils.torchutils.BoxUniform(low=torch.as_tensor(prior_min), high=torch.as_tensor(prior_max))
+        return torchutils.BoxUniform(low=torch.as_tensor(prior_min), high=torch.as_tensor(prior_max))
 
     def _set_sim_params(self, sim: simulator.Simulator, params):
         index = 0
@@ -149,7 +144,7 @@ class TvbInference:
 
         ts_path = self._pyunicore_run(dir_name, tvb_simulator)
 
-        with load(ts_path) as data:
+        with np.load(ts_path) as data:
             ts_data = data['data']
             ts_time = data['time']
 
@@ -178,7 +173,8 @@ class TvbInference:
         """
         params = np.asarray(params)
         BOLD_r_sim = self.run_sim(params)
-        return torch.as_tensor(self.summary_statistics(BOLD_r_sim.reshape(-1)))
+        summary_statistics = SummaryStatistics(BOLD_r_sim.reshape(-1), self.simulator.connectivity.weights.shape[0])
+        return torch.as_tensor(summary_statistics.compute())
 
     def sample_priors(self, backend=NbMPRBackend, save_path=None, num_simulations=20, num_workers=1):
         """
@@ -189,7 +185,7 @@ class TvbInference:
         """
         self.backend = backend
         self.preparing_for_sbi = True
-        sim, prior = prepare_for_sbi(self._MPR_simulator_wrapper, self.prior)
+        sim, prior = sbi_inference.prepare_for_sbi(self._MPR_simulator_wrapper, self.prior)
         self.preparing_for_sbi = False
         local_sampler = LocalSampler(num_simulations, num_workers)
         theta, x = local_sampler.run(sim, prior, save_path, self.SIMULATIONS_RESULTS)
@@ -209,7 +205,7 @@ class TvbInference:
             Path to the file which contains info about theta and simulator output.
         """
         try:
-            method_fun: Callable = getattr(sbi.inference, method.upper())
+            method_fun: Callable = getattr(sbi_inference, method.upper())
         except AttributeError:
             raise NameError(
                 "Method not available. `method` must be one of 'SNPE', 'SNLE', 'SNRE'."
@@ -231,7 +227,7 @@ class TvbInference:
             x = torch.as_tensor(x)
 
         self.preparing_for_sbi = True
-        sim, prior = prepare_for_sbi(self._MPR_simulator_wrapper, self.prior)
+        sim, prior = sbi_inference.prepare_for_sbi(self._MPR_simulator_wrapper, self.prior)
         self.preparing_for_sbi = False
         inference = method_fun(prior)
         _ = inference.append_simulations(theta, x).train()
@@ -256,7 +252,8 @@ class TvbInference:
         if not self.trained:
             raise Exception("You have to train the neural network before generating distribution")
 
-        obs_summary_statistics = self.summary_statistics(data.reshape(-1))
+        summary_statistics = SummaryStatistics(data.reshape(-1), self.simulator.connectivity.weights.shape[0])
+        obs_summary_statistics = summary_statistics.compute()
         num_samples = 1000
         posterior_samples = self.inf_posterior.sample((num_samples,), obs_summary_statistics,
                                                       sample_with='mcmc').numpy()

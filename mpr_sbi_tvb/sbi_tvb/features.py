@@ -1,3 +1,4 @@
+from enum import Enum
 import numpy as np
 from scipy.stats import kurtosis
 from scipy.stats import moment
@@ -5,93 +6,112 @@ from scipy.stats import skew
 from sbi_tvb import analysis
 
 
-def _calculate_summary_statistics(self, x, features=None):
-    """
-    Calculate summary statistics via numpy and scipy.
-    The function here extracts 10 momenta for each bold channel, FC mean, FCD mean, variance
-    difference and standard deviation of FC stream.
-    Check that you can compute FCD features via proper FCD packages
+class FeaturesEnum(Enum):
+    HIGHER_MOMENTS = 'higher_moments'
+    FC_CORR = 'fc_corr'
+    FCD_CORR = 'fcd_corr'
 
-    Parameters
-    ----------
-    x : output of the simulator
+    @staticmethod
+    def get_all():
+        return [el.name for el in FeaturesEnum]
 
-    Returns
-    -------
-    np.array, summary statistics
-    """
-    if features is None:
-        features = ['higher_moments', 'FC_corr', 'FCD_corr']
-    nn = self.simulator.connectivity.weights.shape[0]
 
-    X = x.reshape(nn, int(x.shape[0] / nn))
+class SummaryStatistics(object):
 
-    n_summary = 16 * nn + (nn * nn) + 300 * 300
-    bold_dt = 2250
+    def __init__(self, x, nr_regions, bold_dt=2250):
+        self.nn = nr_regions
+        self.bold_dt = bold_dt
+        self.X = x.reshape(self.nn, int(x.shape[0] / self.nn))
+        self.n_summary = 16 * self.nn + (self.nn * self.nn) + 300 * 300
 
-    sum_stats_vec = np.concatenate((np.mean(X, axis=1),
-                                    np.median(X, axis=1),
-                                    np.std(X, axis=1),
-                                    skew(X, axis=1),
-                                    kurtosis(X, axis=1),
-                                    ))
+    def compute(self, features=None):
+        """
+        Calculate summary statistics via numpy and scipy.
+        The function here extracts 10 momenta for each bold channel, FC mean, FCD mean, variance
+        difference and standard deviation of FC stream.
+        Check that you can compute FCD features via proper FCD packages
 
-    for item in features:
+        Input
+        ----------
+        x : output of the simulator
 
-        if item == 'higher_moments':
-            sum_stats_vec = np.concatenate((sum_stats_vec,
-                                            moment(X, moment=2, axis=1),
-                                            moment(X, moment=3, axis=1),
-                                            moment(X, moment=4, axis=1),
-                                            moment(X, moment=5, axis=1),
-                                            moment(X, moment=6, axis=1),
-                                            moment(X, moment=7, axis=1),
-                                            moment(X, moment=8, axis=1),
-                                            moment(X, moment=9, axis=1),
-                                            moment(X, moment=10, axis=1),
-                                            ))
+        Returns
+        -------
+        np.array, summary statistics
+        """
+        if features is None:
+            features = FeaturesEnum.get_all()
 
-        if item == 'FC_corr':
-            FC = np.corrcoef(X)
-            off_diag_sum_FC = np.sum(FC) - np.trace(FC)
-            print('FC_Corr')
-            sum_stats_vec = np.concatenate((sum_stats_vec,
-                                            np.array([off_diag_sum_FC]),
-                                            ))
+        sum_stats_vec = np.concatenate((np.mean(self.X, axis=1),
+                                        np.median(self.X, axis=1),
+                                        np.std(self.X, axis=1),
+                                        skew(self.X, axis=1),
+                                        kurtosis(self.X, axis=1),
+                                        ))
 
-        if item == 'FCD_corr':
-            win_FCD = 40e3
-            NHALF = int(nn / 2)
+        for feature in features:
+            method_name = FeaturesEnum[feature].value
+            method = self.__getattribute__(method_name)
+            sum_stats_vec = method(sum_stats_vec)
 
-            mask_inter = np.zeros([nn, nn])
-            mask_inter[0:NHALF, NHALF:NHALF * 2] = 1
-            mask_inter[NHALF:NHALF * 2, 0:NHALF] = 1
+        sum_stats_vec = sum_stats_vec[0:self.n_summary]
 
-            bold_summ_stat = X.T
+        return sum_stats_vec
 
-            FCD, fc_stack, speed_fcd = analysis.compute_fcd(bold_summ_stat, win_len=int(win_FCD / bold_dt),
-                                                            win_sp=1)
-            fcd_inter, fc_stack_inter, _ = analysis.compute_fcd_filt(bold_summ_stat, mask_inter,
-                                                                     win_len=int(win_FCD / bold_dt), win_sp=1)
+    def higher_moments(self, sum_stats_vec):
+        sum_stats_vec = np.concatenate((sum_stats_vec,
+                                        moment(self.X, moment=2, axis=1),
+                                        moment(self.X, moment=3, axis=1),
+                                        moment(self.X, moment=4, axis=1),
+                                        moment(self.X, moment=5, axis=1),
+                                        moment(self.X, moment=6, axis=1),
+                                        moment(self.X, moment=7, axis=1),
+                                        moment(self.X, moment=8, axis=1),
+                                        moment(self.X, moment=9, axis=1),
+                                        moment(self.X, moment=10, axis=1),
+                                        ))
+        return sum_stats_vec
 
-            FCD_TRIU = np.triu(FCD, k=1)
+    def fc_corr(self, sum_stats_vec):
+        FC = np.corrcoef(self.X)
+        off_diag_sum_FC = np.sum(FC) - np.trace(FC)
+        print('FC_Corr')
+        sum_stats_vec = np.concatenate((sum_stats_vec,
+                                        np.array([off_diag_sum_FC]),
+                                        ))
 
-            FCD_INTER_TRIU = np.triu(fcd_inter, k=1)
+        return sum_stats_vec
 
-            FCD_MEAN = np.mean(FCD_TRIU)
-            FCD_VAR = np.var(FCD_TRIU)
-            FCD_OSC = np.std(fc_stack)
-            FCD_OSC_INTER = np.std(fc_stack_inter)
+    def fcd_corr(self, sum_stats_vec):
+        win_FCD = 40e3
+        NHALF = int(self.nn / 2)
 
-            FCD_MEAN_INTER = np.mean(FCD_INTER_TRIU)
-            FCD_VAR_INTER = np.var(FCD_INTER_TRIU)
+        mask_inter = np.zeros([self.nn, self.nn])
+        mask_inter[0:NHALF, NHALF:NHALF * 2] = 1
+        mask_inter[NHALF:NHALF * 2, 0:NHALF] = 1
 
-            DIFF_VAR = FCD_VAR_INTER - FCD_VAR
+        bold_summ_stat = self.X.T
 
-            sum_stats_vec = np.concatenate((sum_stats_vec,
-                                            np.array([FCD_MEAN]), np.array([FCD_OSC_INTER]), np.array([DIFF_VAR])
-                                            ))
+        FCD, fc_stack, speed_fcd = analysis.compute_fcd(bold_summ_stat, win_len=int(win_FCD / self.bold_dt),
+                                                        win_sp=1)
+        fcd_inter, fc_stack_inter, _ = analysis.compute_fcd_filt(bold_summ_stat, mask_inter,
+                                                                 win_len=int(win_FCD / self.bold_dt), win_sp=1)
 
-    sum_stats_vec = sum_stats_vec[0:n_summary]
+        FCD_TRIU = np.triu(FCD, k=1)
 
-    return sum_stats_vec
+        FCD_INTER_TRIU = np.triu(fcd_inter, k=1)
+
+        FCD_MEAN = np.mean(FCD_TRIU)
+        FCD_VAR = np.var(FCD_TRIU)
+        FCD_OSC = np.std(fc_stack)
+        FCD_OSC_INTER = np.std(fc_stack_inter)
+
+        FCD_MEAN_INTER = np.mean(FCD_INTER_TRIU)
+        FCD_VAR_INTER = np.var(FCD_INTER_TRIU)
+
+        DIFF_VAR = FCD_VAR_INTER - FCD_VAR
+
+        sum_stats_vec = np.concatenate((sum_stats_vec,
+                                        np.array([FCD_MEAN]), np.array([FCD_OSC_INTER]), np.array([DIFF_VAR])
+                                        ))
+        return sum_stats_vec
