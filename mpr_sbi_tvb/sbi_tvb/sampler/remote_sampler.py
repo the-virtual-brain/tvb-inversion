@@ -3,7 +3,7 @@ from time import sleep
 
 import pyunicore.client as unicore_client
 
-from mpr_sbi_tvb.sbi_tvb.sampler.local_samplers import DockerLocalSampler
+from sbi_tvb.sampler.local_samplers import DockerLocalSampler
 
 
 class UnicoreSampler(DockerLocalSampler):
