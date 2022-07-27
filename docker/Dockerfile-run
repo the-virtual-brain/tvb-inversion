@@ -28,10 +28,10 @@ RUN /opt/conda/envs/tvb-run/bin/pip uninstall --y pyAesCrypt numba
 RUN /opt/conda/envs/tvb-run/bin/pip install pyAesCrypt numba
 
 ARG TOKEN=github_security_token
+ARG CACHE_INV=now
 RUN cd /opt; \
     git clone --depth 1 --branch remote_api https://$TOKEN@github.com/the-virtual-brain/tvb-inversion.git
 
-ARG CACHE_INV=now
 RUN cd /opt/tvb-inversion; \
     git pull; \
     cd mpr_sbi_tvb; \
