@@ -1,5 +1,7 @@
 import os
 from time import sleep
+
+import numpy as np
 import pyunicore.client as unicore_client
 
 
@@ -76,6 +78,13 @@ class UnicoreSampler(object):
             raise Exception("The priors sampling results could not be downloaded from HPC! "
                             "Please check the logs on HPC to understand what went wrong!")
 
+    def _read_results(self, result):
+        with np.load(result) as f:
+            theta = f['theta']
+            x = f['x']
+
+        return theta, x
+
     def run(self, dir_name, tvb_simulator, result_name):
         hpc_inputs = self._gather_inputs(dir_name)
         job_config = self._prepare_unicore_job(tvb_simulator)
@@ -89,4 +98,6 @@ class UnicoreSampler(object):
         result_path = os.path.join(dir_name, result_name)
         self._stage_out_results(job, result_path)
 
-        return result_path
+        theta, x = self._read_results(result_path)
+
+        return theta, x

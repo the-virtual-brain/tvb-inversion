@@ -166,11 +166,7 @@ class TvbInference:
         store_ht(used_simulator, dir_name)
 
         remote_sampler = UnicoreSampler(num_simulations, num_workers, project)
-        result = remote_sampler.run(dir_name, used_simulator, self.SIMULATIONS_RESULTS)
-
-        with load(result) as f:
-            theta = f['theta']
-            x = f['x']
+        theta, x = remote_sampler.run(dir_name, used_simulator, self.SIMULATIONS_RESULTS)
 
         self.theta = theta
         self.x = x
