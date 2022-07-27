@@ -14,12 +14,12 @@ from sbi_tvb.utils import custom_setattr
 from scipy import signal
 
 from tvb.config.init.datatypes_registry import populate_datatypes_registry
-from tvb.core.neocom.h5 import store_ht, load_ht
+from tvb.core.neocom.h5 import store_ht
 from tvb.simulator.backend.nb_mpr import NbMPRBackend
 from tvb.simulator.lab import *
 
 from mpr_sbi_tvb.sbi_tvb.features import _calculate_summary_statistics
-from mpr_sbi_tvb.sbi_tvb.sampler import UnicoreSampler
+from mpr_sbi_tvb.sbi_tvb.sampler.remote_sampler import UnicoreSampler
 
 
 class TvbInference:
