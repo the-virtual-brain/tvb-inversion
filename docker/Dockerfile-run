@@ -8,7 +8,7 @@ USER root
 RUN conda update -n base -c defaults conda
 
 RUN conda create -y --name tvb-run python=3.8
-RUN /opt/conda/envs/tvb-run/bin/pip install --upgrade pip
+RUN /opt/conda/envs/tvb-run/bin/pip install --upgrade pip pyunicore
 RUN /opt/conda/envs/tvb-run/bin/pip install sbi==0.17.2
 
 ARG CACHE_TVB=now
