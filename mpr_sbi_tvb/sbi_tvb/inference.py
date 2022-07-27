@@ -19,6 +19,7 @@ from tvb.simulator.backend.nb_mpr import NbMPRBackend
 from tvb.simulator.lab import *
 
 from mpr_sbi_tvb.sbi_tvb.features import _calculate_summary_statistics
+from mpr_sbi_tvb.sbi_tvb.sampler.local_samplers import LocalSampler
 from mpr_sbi_tvb.sbi_tvb.sampler.remote_sampler import UnicoreSampler
 
 
@@ -166,12 +167,10 @@ class TvbInference:
         store_ht(used_simulator, dir_name)
 
         remote_sampler = UnicoreSampler(num_simulations, num_workers, project)
-        theta, x = remote_sampler.run(dir_name, used_simulator, self.SIMULATIONS_RESULTS)
+        theta, x = remote_sampler.run(used_simulator, dir_name, self.SIMULATIONS_RESULTS)
 
         self.theta = theta
         self.x = x
-
-        return theta, x
 
     def _MPR_simulator_wrapper(self, params):
         """
@@ -180,25 +179,6 @@ class TvbInference:
         params = np.asarray(params)
         BOLD_r_sim = self.run_sim(params)
         return torch.as_tensor(self.summary_statistics(BOLD_r_sim.reshape(-1)))
-
-    def _simulate_for_sbi(self, sim, prior, num_simulations, num_workers, save_path=None):
-        theta, x = simulate_for_sbi(
-            simulator=sim,
-            proposal=prior,
-            num_simulations=num_simulations,
-            num_workers=num_workers,
-            show_progress_bar=True,
-        )
-        print(f'Theta shape is {theta.shape}, x shape is {x.shape}')
-        # self.theta = theta
-        # self.x = x
-        if save_path is None:
-            save_path = os.getcwd()
-        mysavepath = os.path.join(save_path, TvbInference.SIMULATIONS_RESULTS)
-        print(f'Saving results at {mysavepath}...')
-        np.savez(mysavepath, theta=theta, x=x)
-        print(f'Results saved!')
-        return theta, x
 
     def sample_priors(self, backend=NbMPRBackend, save_path=None, num_simulations=20, num_workers=1):
         """
@@ -211,8 +191,11 @@ class TvbInference:
         self.preparing_for_sbi = True
         sim, prior = prepare_for_sbi(self._MPR_simulator_wrapper, self.prior)
         self.preparing_for_sbi = False
-        theta, x = self._simulate_for_sbi(sim, prior, num_simulations, num_workers, save_path)
-        return theta, x
+        local_sampler = LocalSampler(num_simulations, num_workers)
+        theta, x = local_sampler.run(sim, prior, save_path, self.SIMULATIONS_RESULTS)
+
+        self.theta = theta
+        self.x = x
 
     def train(self, method='SNPE', load_path=None):
         """

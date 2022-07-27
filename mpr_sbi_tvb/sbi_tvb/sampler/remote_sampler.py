@@ -1,16 +1,16 @@
 import os
 from time import sleep
 
-import numpy as np
 import pyunicore.client as unicore_client
 
+from mpr_sbi_tvb.sbi_tvb.sampler.local_samplers import DockerLocalSampler
 
-class UnicoreSampler(object):
+
+class UnicoreSampler(DockerLocalSampler):
     HPC_SCRIPT = 'launch_simulation_hpc.sh'
 
     def __init__(self, num_simulations, num_workers, project):
-        self.num_simulations = num_simulations
-        self.num_workers = num_workers
+        super.__init__(num_simulations, num_workers)
         self.project = project
 
     def __retrieve_token(self):
@@ -42,12 +42,10 @@ class UnicoreSampler(object):
         return hpc_input_paths
 
     def _prepare_unicore_job(self, tvb_simulator):
-        docker_dir_name = '/home/data'
-
         # TODO: specify resources in pyunicore instead of srun
         my_job = {
             'Executable': self.HPC_SCRIPT,
-            'Arguments': [docker_dir_name, tvb_simulator.gid.hex, self.num_simulations, self.num_workers],
+            'Arguments': [self.DOCKER_DATA_DIR, tvb_simulator.gid.hex, self.num_simulations, self.num_workers],
             'Project': self.project,
             'Name': 'TVB-INVERSION_{}_{}'.format(self.num_simulations, self.num_workers),
             # 'Resources': {'Nodes': '1', 'Memory': '32G', 'NodeConstraints': 'mc', 'Runtime': '2h'},
@@ -78,16 +76,9 @@ class UnicoreSampler(object):
             raise Exception("The priors sampling results could not be downloaded from HPC! "
                             "Please check the logs on HPC to understand what went wrong!")
 
-    def _read_results(self, result):
-        with np.load(result) as f:
-            theta = f['theta']
-            x = f['x']
-
-        return theta, x
-
-    def run(self, dir_name, tvb_simulator, result_name):
+    def run(self, simulator, dir_name, result_name):
         hpc_inputs = self._gather_inputs(dir_name)
-        job_config = self._prepare_unicore_job(tvb_simulator)
+        job_config = self._prepare_unicore_job(simulator)
 
         client = self._connect_unicore()
         job = client.new_job(job_description=job_config, inputs=hpc_inputs)
@@ -98,6 +89,6 @@ class UnicoreSampler(object):
         result_path = os.path.join(dir_name, result_name)
         self._stage_out_results(job, result_path)
 
-        theta, x = self._read_results(result_path)
+        theta, x = self.read_results(result_path)
 
         return theta, x
