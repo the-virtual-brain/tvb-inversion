@@ -10,7 +10,7 @@ class UnicoreSampler(DockerLocalSampler):
     HPC_SCRIPT = 'launch_simulation_hpc.sh'
 
     def __init__(self, num_simulations, num_workers, project):
-        super.__init__(num_simulations, num_workers)
+        super(UnicoreSampler, self).__init__(num_simulations, num_workers)
         self.project = project
 
     def __retrieve_token(self):
