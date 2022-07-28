@@ -36,6 +36,7 @@ class UnicoreSampler(DockerLocalSampler):
         for input_name in hpc_input_names:
             hpc_input_paths.append(os.path.join(dir_name, input_name))
 
+        # TODO: this does not work for notebooks/scripts that might be in other folders
         script_path = os.path.join(os.getcwd(), 'sbi_tvb', self.HPC_SCRIPT)
         hpc_input_paths.append(script_path)
 
@@ -47,7 +48,7 @@ class UnicoreSampler(DockerLocalSampler):
             'Arguments': [self.DOCKER_DATA_DIR, tvb_simulator.gid.hex, self.num_simulations, self.num_workers],
             'Project': self.project,
             'Name': 'TVB-INVERSION_{}_{}'.format(self.num_simulations, self.num_workers),
-            'Resources': {'Nodes': '1', 'Memory': '32GB', 'NodeConstraints': 'mc', 'Runtime': '2h'},
+            'Resources': {'Nodes': '1', 'NodeConstraints': 'mc', 'Runtime': '2h'},
         }
 
         return my_job
