@@ -14,6 +14,7 @@ from tvb.simulator.backend.nb_mpr import NbMPRBackend
 from tvb.simulator.lab import simulator
 
 from sbi_tvb.features import FeaturesEnum, SummaryStatistics
+from sbi_tvb.logger.builder import get_logger
 from sbi_tvb.prior import Prior
 from sbi_tvb.sampler.local_samplers import LocalSampler
 from sbi_tvb.sampler.remote_sampler import UnicoreSampler
@@ -41,6 +42,8 @@ class TvbInference:
             custom function used to reduce dimension. This function which takes as input TVB simulator output and
             returns an array
         """
+        self.logger = get_logger(self.__class__.__module__)
+
         populate_datatypes_registry()
         self.simulator = sim
         self.prior = self._build_prior(priors)
@@ -102,7 +105,7 @@ class TvbInference:
             self.backend = NbMPRBackend
 
         if not self.preparing_for_sbi:
-            print("Using params: {}".format(params))
+            self.logger.info("Using params: {}".format(params))
             self._set_sim_params(used_simulator, params)
             temporal_average_time, temporal_average_data = self.submit_simulation(self.backend, used_simulator)
         else:
@@ -137,7 +140,7 @@ class TvbInference:
         import tempfile
 
         dir_name = tempfile.mkdtemp(prefix='simulator-', dir=os.getcwd())
-        print(f'Using dir {dir_name} for gid {tvb_simulator.gid}')
+        self.logger.info(f'Using dir {dir_name} for gid {tvb_simulator.gid}')
         populate_datatypes_registry()
 
         store_ht(tvb_simulator, dir_name)
@@ -148,7 +151,6 @@ class TvbInference:
             ts_data = data['data']
             ts_time = data['time']
 
-        print(f"TODO: Submit {backend} and {tvb_simulator} to HPC backend")
         # StorageInterface.remove_folder(dir_name)
         return ts_time, ts_data
 
@@ -156,7 +158,7 @@ class TvbInference:
         used_simulator = deepcopy(self.simulator)
 
         dir_name = tempfile.mkdtemp(prefix='simulator-', dir=os.getcwd())
-        print(f'Using dir {dir_name} for gid {used_simulator.gid}')
+        self.logger.info(f'Using dir {dir_name} for gid {used_simulator.gid}')
         populate_datatypes_registry()
 
         store_ht(used_simulator, dir_name)

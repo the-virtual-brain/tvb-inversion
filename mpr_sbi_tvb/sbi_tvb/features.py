@@ -3,7 +3,9 @@ import numpy as np
 from scipy.stats import kurtosis
 from scipy.stats import moment
 from scipy.stats import skew
+
 from sbi_tvb import analysis
+from sbi_tvb.logger.builder import get_logger
 
 
 class FeaturesEnum(Enum):
@@ -19,6 +21,7 @@ class FeaturesEnum(Enum):
 class SummaryStatistics(object):
 
     def __init__(self, x, nr_regions, bold_dt=2250):
+        self.logger = get_logger(self.__class__.__module__)
         self.nn = nr_regions
         self.bold_dt = bold_dt
         self.X = x.reshape(self.nn, int(x.shape[0] / self.nn))
@@ -59,6 +62,8 @@ class SummaryStatistics(object):
         return sum_stats_vec
 
     def higher_moments(self, sum_stats_vec):
+        self.logger.info('Computing HIGHER_MOMENTS feature...')
+
         sum_stats_vec = np.concatenate((sum_stats_vec,
                                         moment(self.X, moment=2, axis=1),
                                         moment(self.X, moment=3, axis=1),
@@ -73,9 +78,10 @@ class SummaryStatistics(object):
         return sum_stats_vec
 
     def fc_corr(self, sum_stats_vec):
+        self.logger.info('Computing FC_CORR feature...')
+
         FC = np.corrcoef(self.X)
         off_diag_sum_FC = np.sum(FC) - np.trace(FC)
-        print('FC_Corr')
         sum_stats_vec = np.concatenate((sum_stats_vec,
                                         np.array([off_diag_sum_FC]),
                                         ))
@@ -83,6 +89,8 @@ class SummaryStatistics(object):
         return sum_stats_vec
 
     def fcd_corr(self, sum_stats_vec):
+        self.logger.info('Computing FCD_CORR feature...')
+
         win_FCD = 40e3
         NHALF = int(self.nn / 2)
 

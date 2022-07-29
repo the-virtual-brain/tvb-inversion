@@ -4,10 +4,13 @@ from subprocess import Popen, PIPE
 import numpy as np
 from sbi.inference import simulate_for_sbi
 
+from sbi_tvb.logger.builder import get_logger
+
 
 class BaseSampler(object):
 
     def __init__(self, num_simulations, num_workers):
+        self.logger = get_logger(self.__class__.__module__)
         self.num_simulations = num_simulations
         self.num_workers = num_workers
 
@@ -30,15 +33,15 @@ class LocalSampler(BaseSampler):
             num_workers=self.num_workers,
             show_progress_bar=True,
         )
-        print(f'Theta shape is {theta.shape}, x shape is {x.shape}')
+        self.logger.info(f'Theta shape is {theta.shape}, x shape is {x.shape}')
 
         if dir_name is None:
             dir_name = os.getcwd()
         mysavepath = os.path.join(dir_name, result_name)
-        print(f'Saving results at {mysavepath}...')
+        self.logger.info(f'Saving results at {mysavepath}...')
 
         np.savez(mysavepath, theta=theta, x=x)
-        print(f'Results saved!')
+        self.logger.info(f'Results saved!')
 
         return theta, x
 
@@ -58,7 +61,7 @@ class DockerLocalSampler(BaseSampler):
         returned = launched_process.wait()
 
         if returned != 0:
-            print(f"Failed to launch job")
+            self.logger.error(f"Failed to launch job")
             return
 
         theta, x = self.read_results(result_name)

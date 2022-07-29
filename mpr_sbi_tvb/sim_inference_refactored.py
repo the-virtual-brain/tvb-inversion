@@ -7,6 +7,8 @@ from sbi_tvb.inference import TvbInference
 from sbi_tvb.prior import Prior
 from tvb.simulator.lab import *
 
+LOGGER = get_logger(__name__)
+
 
 def build_simulator():
     sbi_tvb_path = os.path.dirname(os.path.dirname(sbi_tvb.__file__))
@@ -57,32 +59,31 @@ def build_simulator():
 if __name__ == '__main__':
     os.environ['CLB_AUTH'] = ''
     sim = build_simulator()
-    print("Build TvbInference object")
+    LOGGER.info("Build TvbInference object")
     tvb_inference = TvbInference(sim=sim,
                                  priors=[Prior('coupling.a', 1.5, 3.2)])
 
-    print("Sample priors")
+    LOGGER.info("Sample priors")
     start = time.time()
 
     tvb_inference.sample_priors_remote(num_simulations=10, num_workers=1)
 
     end = time.time()
-    print("Time elapsed for sim:", end - start)
+    LOGGER.info("Time elapsed for sim:", end - start)
 
-    print("Train")
+    LOGGER.info("Train")
     tvb_inference.train()
 
-    print("Run observed simulation")
+    LOGGER.info("Run observed simulation")
     data = tvb_inference.run_sim(2.2 * np.ones(1))
-    print("Run Posterior")
+    LOGGER.info("Run Posterior")
     post_samples = tvb_inference.posterior(data=data)
-    print(post_samples.mean())
+    LOGGER.info(f'Post samples mean value is {post_samples.mean()}')
 
     end = time.time()
-    print("Time elapsed for all:", end - start)
+    LOGGER.info("Time elapsed for all:", end - start)
 
     sbi_tvb_path = os.path.dirname(os.path.dirname(sbi_tvb.__file__))
     posterior = np.load(os.path.join(sbi_tvb_path, 'posterior_samples_jn_sim.npy'))
 
-    print(posterior.shape)
-    print(posterior.mean())
+    LOGGER.info(f'Posterior shape is {posterior.shape} and mean value is {posterior.mean()}')

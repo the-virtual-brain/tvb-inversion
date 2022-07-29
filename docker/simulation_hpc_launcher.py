@@ -7,7 +7,10 @@ from tvb.simulator.backend.nb_mpr import NbMPRBackend
 from tvb.config.init.datatypes_registry import populate_datatypes_registry
 
 from sbi_tvb.inference import TvbInference
+from sbi_tvb.logger.builder import get_logger
 from sbi_tvb.prior import Prior
+
+LOGGER = get_logger(__name__)
 
 
 def run_simulation(simulator_gid):
@@ -28,7 +31,7 @@ def run_simulation(simulator_gid):
 
 
 def sample_priors(simulator_gid, num_simulations, num_workers):
-    print("Load simulator...")
+    LOGGER.info("Load simulator...")
     data_folder = "/home/data"
 
     populate_datatypes_registry()
@@ -39,11 +42,11 @@ def sample_priors(simulator_gid, num_simulations, num_workers):
     simulator.connectivity = conn
     simulator.configure()
 
-    print("Build TvbInference object")
+    LOGGER.info("Build TvbInference object")
     tvb_inference = TvbInference(sim=simulator,
                                  priors=[Prior('coupling.a', 1.5, 3.2)])
 
-    print("Sample priors")
+    LOGGER.info("Sample priors")
     tvb_inference.sample_priors(num_simulations=num_simulations, num_workers=num_workers, save_path=data_folder)
 
 
