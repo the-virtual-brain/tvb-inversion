@@ -18,6 +18,7 @@ jobs:
           pip3 install --upgrade pip pyunicore
           pip3 install sbi==0.17.2 pytest numpy==1.22.4
           
+          cd ..
           git clone --depth 1 --branch master https://github.com/the-virtual-brain/tvb-root.git
           cd tvb-root
           git pull
@@ -30,9 +31,12 @@ jobs:
           python3 setup.py install
           cd ../tvb_storage
           python3 setup.py install
-          
-          cd ../../mpr_sbi_tvb
-          python3 setup.py install
+
+      - name: Install tvb-inversion
+        run: |
+          cd mpr_sbi_tvb
+          python3 setup.py develop
 
       - name: Run tests
-        run: pytest --pyargs sbi_tvb.tests
+        run: |
+          pytest --pyargs sbi_tvb
