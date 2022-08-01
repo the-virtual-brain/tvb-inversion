@@ -15,21 +15,24 @@ jobs:
 
       - name: Prepare env
         run: |
-               pip3 install --upgrade pip pyunicore
-               pip3 install sbi==0.17.2 pytest
-               
-               git clone --depth 1 --branch master https://github.com/the-virtual-brain/tvb-root.git
-               git pull
-               
-               cd tvb-root/scientific_library
-               python3 setup.py install
-               cd ../framework_tvb
-               python3 setup.py install
-               cd ../tvb_storage
-               python3 setup.py install
-               
-               cd ../../mpr_sbi_tvb
-               python3 setup.py install
+          pip3 install --upgrade pip pyunicore
+          pip3 install sbi==0.17.2 pytest
+          
+          git clone --depth 1 --branch master https://github.com/the-virtual-brain/tvb-root.git
+          cd tvb-root
+          git pull
+          
+          cd tvb_library
+          python3 setup.py install
+          
+          cd ../tvb_framework
+          pip3 install --user -r requirements.txt
+          python3 setup.py install
+          cd ../tvb_storage
+          python3 setup.py install
+          
+          cd ../../mpr_sbi_tvb
+          python3 setup.py install
 
       - name: Run tests
         run: pytest --pyargs sbi_tvb.tests
