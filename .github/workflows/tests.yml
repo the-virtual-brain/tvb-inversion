@@ -16,17 +16,17 @@ jobs:
       - name: Prepare env
         run: |
           pip3 install --upgrade pip pyunicore
-          pip3 install sbi==0.17.2 pytest
+          pip3 install sbi==0.17.2 pytest numpy==1.22.4
           
           git clone --depth 1 --branch master https://github.com/the-virtual-brain/tvb-root.git
           cd tvb-root
           git pull
           
+          pip3 install --user -r tvb_framework/requirements.txt
+          
           cd tvb_library
           python3 setup.py install
-          
           cd ../tvb_framework
-          pip3 install --user -r requirements.txt
           python3 setup.py install
           cd ../tvb_storage
           python3 setup.py install
