@@ -18,6 +18,7 @@ from sbi_tvb.logger.builder import get_logger
 from sbi_tvb.prior import Prior
 from sbi_tvb.sampler.local_samplers import LocalSampler
 from sbi_tvb.sampler.remote_sampler import UnicoreSampler
+
 from sbi_tvb.utils import custom_setattr
 
 
@@ -27,7 +28,8 @@ class TvbInference:
 
     def __init__(self, sim: simulator.Simulator,
                  priors: List[Prior],
-                 features: List[FeaturesEnum] = None):
+                 features: List[FeaturesEnum] = None,
+                 output_dir: str = None):
         """
         Parameters
         -----------------------
@@ -40,7 +42,17 @@ class TvbInference:
         features: List[FeaturesEnum]
             custom function used to reduce dimension. This function which takes as input TVB simulator output and
             returns an array
+
+        output_dir: str
+            location to store output files
         """
+        if output_dir is None:
+            output_dir = os.getcwd()
+        self.output_dir = output_dir
+
+        if not os.path.exists(self.output_dir):
+            os.makedirs(self.output_dir)
+
         self.logger = get_logger(self.__class__.__module__)
         populate_datatypes_registry()
 
@@ -130,7 +142,7 @@ class TvbInference:
     def sample_priors_remote(self, num_simulations, num_workers, project):
         used_simulator = deepcopy(self.simulator)
 
-        dir_name = tempfile.mkdtemp(prefix='simulator-', dir=os.getcwd())
+        dir_name = tempfile.mkdtemp(prefix='simulator-', dir=self.output_dir)
         self.logger.info(f'Using dir {dir_name} for gid {used_simulator.gid}')
         populate_datatypes_registry()
 
@@ -151,7 +163,7 @@ class TvbInference:
         summary_statistics = SummaryStatistics(BOLD_r_sim.reshape(-1), self.simulator.connectivity.weights.shape[0])
         return torch.as_tensor(summary_statistics.compute())
 
-    def sample_priors(self, backend=NbMPRBackend, save_path=None, num_simulations=20, num_workers=1):
+    def sample_priors(self, backend=NbMPRBackend, num_simulations=20, num_workers=1):
         """
         Inference procedure. Although the inference function is defined in the SBI toolbox, the function below shows
         that you can potentially split the simulation step from the inference in case that it is needed.
@@ -163,7 +175,8 @@ class TvbInference:
         sim, prior = sbi_inference.prepare_for_sbi(self._MPR_simulator_wrapper, self.prior)
         self.preparing_for_sbi = False
         local_sampler = LocalSampler(num_simulations, num_workers)
-        theta, x = local_sampler.run(sim, prior, save_path, self.SIMULATIONS_RESULTS)
+
+        theta, x = local_sampler.run(sim, prior, self.output_dir, self.SIMULATIONS_RESULTS)
 
         self.theta = theta
         self.x = x
@@ -212,7 +225,7 @@ class TvbInference:
         self.trained = True
         return inf_posterior
 
-    def posterior(self, data, save_path=None):
+    def posterior(self, data):
         """
         Run actual inference
 
@@ -220,9 +233,6 @@ class TvbInference:
         ----------
         data: numpy array
             TS which will be inferred
-        save_path: str
-            directory where to save the results. If it is not set, current directory will be used.
-
         """
         if not self.trained:
             raise Exception("You have to train the neural network before generating distribution")
@@ -232,8 +242,7 @@ class TvbInference:
         num_samples = 1000
         posterior_samples = self.inf_posterior.sample((num_samples,), obs_summary_statistics,
                                                       sample_with='mcmc').numpy()
-        if save_path is None:
-            save_path = os.getcwd()
-        mysavepath = os.path.join(save_path, TvbInference.POSTERIOR_SAMPLES)
+
+        mysavepath = os.path.join(self.output_dir, TvbInference.POSTERIOR_SAMPLES)
         np.save(mysavepath, posterior_samples)
         return posterior_samples

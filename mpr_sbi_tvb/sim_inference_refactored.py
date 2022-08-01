@@ -1,6 +1,5 @@
 import os
 import time
-
 import numpy as np
 import sbi_tvb
 from sbi_tvb.inference import TvbInference
@@ -59,9 +58,12 @@ def build_simulator():
 if __name__ == '__main__':
     os.environ['CLB_AUTH'] = ''
     sim = build_simulator()
+
     LOGGER.info("Build TvbInference object")
+    output_dir = os.path.join(os.path.dirname(os.path.dirname(os.getcwd())), 'results')
     tvb_inference = TvbInference(sim=sim,
-                                 priors=[Prior('coupling.a', 1.5, 3.2)])
+                                 priors=[Prior('coupling.a', 1.5, 3.2)],
+                                 output_dir=output_dir)
 
     LOGGER.info("Sample priors")
     start = time.time()
@@ -83,7 +85,5 @@ if __name__ == '__main__':
     end = time.time()
     LOGGER.info("Time elapsed for all:", end - start)
 
-    sbi_tvb_path = os.path.dirname(os.path.dirname(sbi_tvb.__file__))
-    posterior = np.load(os.path.join(sbi_tvb_path, 'posterior_samples_jn_sim.npy'))
-
+    posterior = np.load(os.path.join(tvb_inference.output_dir, tvb_inference.POSTERIOR_SAMPLES))
     LOGGER.info(f'Posterior shape is {posterior.shape} and mean value is {posterior.mean()}')

@@ -35,8 +35,6 @@ class LocalSampler(BaseSampler):
         )
         self.logger.info(f'Theta shape is {theta.shape}, x shape is {x.shape}')
 
-        if dir_name is None:
-            dir_name = os.getcwd()
         mysavepath = os.path.join(dir_name, result_name)
         self.logger.info(f'Saving results at {mysavepath}...')
 
