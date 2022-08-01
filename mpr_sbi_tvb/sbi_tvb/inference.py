@@ -27,8 +27,7 @@ class TvbInference:
 
     def __init__(self, sim: simulator.Simulator,
                  priors: List[Prior],
-                 features: List[FeaturesEnum] = None,
-                 remote: bool = False):
+                 features: List[FeaturesEnum] = None):
         """
         Parameters
         -----------------------
@@ -38,13 +37,13 @@ class TvbInference:
         priors: List[Prior]
             list of priors. Define min, max of inferred attributes
 
-        summary_statistics: Callable
+        features: List[FeaturesEnum]
             custom function used to reduce dimension. This function which takes as input TVB simulator output and
             returns an array
         """
         self.logger = get_logger(self.__class__.__module__)
-
         populate_datatypes_registry()
+
         self.simulator = sim
         self.prior = self._build_prior(priors)
         self.priors_list = priors
@@ -55,9 +54,6 @@ class TvbInference:
         self.trained = False
         self.preparing_for_sbi = False
         self.inf_posterior = None
-        self.submit_simulation = self._submit_simulation_local
-        if remote:
-            self.submit_simulation = self._submit_simulation_remote
 
     def _build_prior(self, priors: List[Prior]):
         """
@@ -107,9 +103,7 @@ class TvbInference:
         if not self.preparing_for_sbi:
             self.logger.info("Using params: {}".format(params))
             self._set_sim_params(used_simulator, params)
-            temporal_average_time, temporal_average_data = self.submit_simulation(self.backend, used_simulator)
-        else:
-            temporal_average_time, temporal_average_data = self._submit_simulation_local(self.backend, used_simulator)
+        temporal_average_time, temporal_average_data = self._submit_simulation_local(self.backend, used_simulator)
 
         # TODO: Are these adjustments generic?
         temporal_average_time *= 10  # rescale time
@@ -132,27 +126,6 @@ class TvbInference:
         (temporal_average_time, temporal_average_data), = backend().run_sim(tvb_simulator,
                                                                             simulation_length=tvb_simulator.simulation_length)
         return temporal_average_time, temporal_average_data
-
-    def _submit_simulation_remote(self, backend, tvb_simulator):
-        """
-        Run TVB simulation remote on a HPC cluster.
-        """
-        import tempfile
-
-        dir_name = tempfile.mkdtemp(prefix='simulator-', dir=os.getcwd())
-        self.logger.info(f'Using dir {dir_name} for gid {tvb_simulator.gid}')
-        populate_datatypes_registry()
-
-        store_ht(tvb_simulator, dir_name)
-
-        ts_path = self._pyunicore_run(dir_name, tvb_simulator)
-
-        with np.load(ts_path) as data:
-            ts_data = data['data']
-            ts_time = data['time']
-
-        # StorageInterface.remove_folder(dir_name)
-        return ts_time, ts_data
 
     def sample_priors_remote(self, num_simulations, num_workers, project):
         used_simulator = deepcopy(self.simulator)
