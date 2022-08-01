@@ -13,7 +13,7 @@ class UnicoreSampler(DockerLocalSampler):
         super(UnicoreSampler, self).__init__(num_simulations, num_workers)
         self.project = project
 
-    def __retrieve_token(self):
+    def _retrieve_token(self):
         try:
             from clb_nb_utils import oauth as clb_oauth
             token = clb_oauth.get_token()
@@ -55,7 +55,7 @@ class UnicoreSampler(DockerLocalSampler):
 
     def _connect_unicore(self):
         # TODO: get token and site_url generically?
-        token = self.__retrieve_token()
+        token = self._retrieve_token()
         transport = unicore_client.Transport(token)
         all_sites = unicore_client.get_sites(transport)
         client = unicore_client.Client(transport, all_sites['DAINT-CSCS'])
