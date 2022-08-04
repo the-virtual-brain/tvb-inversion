@@ -2,7 +2,7 @@ import os
 import time
 import numpy as np
 import sbi_tvb
-from sbi_tvb.inference import TvbInference
+from sbi_tvb.inference import TvbInference, BackendEnum
 from sbi_tvb.prior import Prior
 from tvb.simulator.lab import *
 
@@ -68,7 +68,7 @@ if __name__ == '__main__':
     LOGGER.info("Sample priors")
     start = time.time()
 
-    tvb_inference.sample_priors_remote(num_simulations=10, num_workers=1)
+    tvb_inference.sample_priors(num_simulations=10, num_workers=1, backend=BackendEnum.REMOTE, project='')
 
     end = time.time()
     LOGGER.info("Time elapsed for sim:", end - start)

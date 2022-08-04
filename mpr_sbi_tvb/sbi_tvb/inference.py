@@ -1,6 +1,7 @@
 import os
 import tempfile
 from copy import deepcopy
+from enum import Enum
 from typing import Callable, List
 import numpy as np
 import sbi.inference as sbi_inference
@@ -20,6 +21,11 @@ from sbi_tvb.sampler.local_samplers import LocalSampler
 from sbi_tvb.sampler.remote_sampler import UnicoreSampler
 
 from sbi_tvb.utils import custom_setattr
+
+
+class BackendEnum(Enum):
+    LOCAL = "local"
+    REMOTE = "remote"
 
 
 class TvbInference:
@@ -139,6 +145,16 @@ class TvbInference:
                                                                             simulation_length=tvb_simulator.simulation_length)
         return temporal_average_time, temporal_average_data
 
+    def sample_priors(self, num_simulations, num_workers, backend=BackendEnum.LOCAL, project=None):
+        if backend == BackendEnum.REMOTE:
+            if project is None or len(project.strip()) == 0:
+                raise Exception("Please specify the HPC project to use for remote run!")
+
+            self.sample_priors_remote(num_simulations=num_simulations, num_workers=num_workers, project=project)
+
+        else:
+            self.sample_priors_locally(num_simulations=num_simulations, num_workers=num_workers)
+
     def sample_priors_remote(self, num_simulations, num_workers, project):
         used_simulator = deepcopy(self.simulator)
 
@@ -163,7 +179,7 @@ class TvbInference:
         summary_statistics = SummaryStatistics(BOLD_r_sim.reshape(-1), self.simulator.connectivity.weights.shape[0])
         return torch.as_tensor(summary_statistics.compute())
 
-    def sample_priors(self, backend=NbMPRBackend, num_simulations=20, num_workers=1):
+    def sample_priors_locally(self, backend=NbMPRBackend, num_simulations=20, num_workers=1):
         """
         Inference procedure. Although the inference function is defined in the SBI toolbox, the function below shows
         that you can potentially split the simulation step from the inference in case that it is needed.

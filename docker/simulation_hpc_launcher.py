@@ -47,7 +47,7 @@ def sample_priors(simulator_gid, num_simulations, num_workers):
                                  priors=[Prior('coupling.a', 1.5, 3.2)])
 
     LOGGER.info("Sample priors")
-    tvb_inference.sample_priors(num_simulations=num_simulations, num_workers=num_workers, save_path=data_folder)
+    tvb_inference.sample_priors_locally(num_simulations=num_simulations, num_workers=num_workers, save_path=data_folder)
 
 
 if __name__ == "__main__":
