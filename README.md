@@ -29,25 +29,23 @@ And then, the TVBInference object should be created by giving it the previously 
                                  output_dir=output_dir)
 
 The third step (priors sampling) can be executed with different backends, either locally or remotely to an HPC that
-supports the UNICORE API.
+supports the UNICORE API. Only users with access to an HPC (DAINT-CSCS for now) will be able to use the remote backend.
 
 Each user should choose the preferred backend within this API:
 
-- remotely 
-  - only for users with access to an HPC (DAINT-CSCS for now)
-  - an HPC project has to be given as argument
+- remotely (an HPC project has to be given as argument)
 
 
-    tvb_inference.sample_priors(num_simulations=10, 
-                                num_workers=10, 
-                                backend=BackendEnum.REMOTE, 
-                                project='hpc_project')
+      tvb_inference.sample_priors(num_simulations=10, 
+                                  num_workers=10, 
+                                  backend=BackendEnum.REMOTE, 
+                                  project='hpc_project')
 
 - locally
 
 
-    tvb_inference.sample_priors(num_simulations=10, 
-                                num_workers=10)
+      tvb_inference.sample_priors(num_simulations=10, 
+                                  num_workers=10)
 
 
 The fourth step can also be accessed from TVBInference object and can run locally:
