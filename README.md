@@ -1,6 +1,6 @@
 # TVB INVERSION
 
-Module capable to compute inference for TVB simulator parameters.
+Module capable to compute inference for TVB simulator parameters, based on the SBI library.
 
 ### API
 
