@@ -1,0 +1,31 @@
+name: Build and publish docker image on Dockerhub
+
+on: workflow_dispatch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Build and push image
+        uses: docker/build-push-action@v2
+        with:
+          context: docker
+          file: docker/Dockerfile-run
+          builder: ${{ steps.buildx.outputs.name }}
+          push: true
+          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/tvb-run:inv-sbi
+          build-arg: TOKEN=${{ secrets.TOKEN_TVB_INVERSION_CLONE }},CACHE_INV='abc'
+          cache-from: type=registry,ref=${{ secrets.DOCKER_HUB_USERNAME }}/tvb-run:buildcache
+          cache-to: type=registry,ref=${{ secrets.DOCKER_HUB_USERNAME }}/tvb-run:buildcache,mode=max
