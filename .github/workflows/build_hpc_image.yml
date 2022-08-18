@@ -25,7 +25,5 @@ jobs:
           file: docker/Dockerfile-run
           builder: ${{ steps.buildx.outputs.name }}
           push: true
-          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/tvb-run:inv-sbi
-          build-arg: TOKEN=${{ secrets.TOKEN_TVB_INVERSION_CLONE }},CACHE_INV='abc'
-          cache-from: type=registry,ref=${{ secrets.DOCKER_HUB_USERNAME }}/tvb-run:buildcache
-          cache-to: type=registry,ref=${{ secrets.DOCKER_HUB_USERNAME }}/tvb-run:buildcache,mode=max
+          tags: thevirtualbrain/tvb-run:inv-sbi
+          build-args: TOKEN=${{ secrets.TOKEN_TVB_INVERSION_CLONE }}
