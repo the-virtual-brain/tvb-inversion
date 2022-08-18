@@ -17,9 +17,9 @@ RUN cd /opt; \
 
 RUN cd /opt/tvb-root; \
     git pull; \
-    cd scientific_library; \
+    cd tvb_library; \
     /opt/conda/envs/tvb-run/bin/python setup.py install; \
-    cd ../framework_tvb; \
+    cd ../tvb_framework; \
     /opt/conda/envs/tvb-run/bin/python setup.py install; \
     cd ../tvb_storage; \
     /opt/conda/envs/tvb-run/bin/python setup.py install
