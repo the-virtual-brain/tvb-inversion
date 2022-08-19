@@ -13,13 +13,13 @@ RUN /opt/conda/envs/tvb-run/bin/pip install sbi==0.17.2
 
 ARG CACHE_TVB=now
 RUN cd /opt; \
-    git clone --depth 1 --branch master https://github.com/popaula937/tvb-root.git
+    git clone --depth 1 --branch master https://github.com/the-virtual-brain/tvb-root.git
 
 RUN cd /opt/tvb-root; \
     git pull; \
-    cd scientific_library; \
+    cd tvb_library; \
     /opt/conda/envs/tvb-run/bin/python setup.py install; \
-    cd ../framework_tvb; \
+    cd ../tvb_framework; \
     /opt/conda/envs/tvb-run/bin/python setup.py install; \
     cd ../tvb_storage; \
     /opt/conda/envs/tvb-run/bin/python setup.py install

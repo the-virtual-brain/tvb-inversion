@@ -13,21 +13,21 @@ class UnicoreSampler(DockerLocalSampler):
         super(UnicoreSampler, self).__init__(num_simulations, num_workers)
         self.project = project
 
-    def __retrieve_token(self):
+    def _retrieve_token(self):
         try:
             from clb_nb_utils import oauth as clb_oauth
             token = clb_oauth.get_token()
         except (ModuleNotFoundError, ConnectionError) as e:
-            print(f"Could not connect to EBRAINS to retrieve an auth token: {e}")
-            print("Will try to use the auth token defined by environment variable CLB_AUTH...")
+            self.logger.warn(f"Could not connect to EBRAINS to retrieve an auth token: {e}")
+            self.logger.info("Will try to use the auth token defined by environment variable CLB_AUTH...")
 
             token = os.environ.get('CLB_AUTH')
             if token is None:
-                print("No auth token defined as environment variable CLB_AUTH! Please define one!")
+                self.logger.error("No auth token defined as environment variable CLB_AUTH! Please define one!")
                 raise Exception("Cannot connect to EBRAINS HPC without an auth token! Either run this on "
                                 "Collab, or define the CLB_AUTH environment variable!")
 
-            print("Successfully retrieved the auth token from environment variable CLB_AUTH!")
+            self.logger.info("Successfully retrieved the auth token from environment variable CLB_AUTH!")
         return token
 
     def _gather_inputs(self, dir_name):
@@ -55,7 +55,7 @@ class UnicoreSampler(DockerLocalSampler):
 
     def _connect_unicore(self):
         # TODO: get token and site_url generically?
-        token = self.__retrieve_token()
+        token = self._retrieve_token()
         transport = unicore_client.Transport(token)
         all_sites = unicore_client.get_sites(transport)
         client = unicore_client.Client(transport, all_sites['DAINT-CSCS'])
@@ -64,14 +64,14 @@ class UnicoreSampler(DockerLocalSampler):
 
     def _monitor_job(self, job):
         while job.is_running():
-            print(job.properties['status'])
+            self.logger.info(job.properties['status'])
             sleep(60)
 
     def _stage_out_results(self, job, result_path):
         wd = job.working_dir.listdir()
         try:
             wd[os.path.basename(result_path)].download(result_path)
-            print(f'Downloaded sampling result as {result_path}')
+            self.logger.info(f'Downloaded sampling result as {result_path}')
         except KeyError:
             raise Exception("The priors sampling results could not be downloaded from HPC! "
                             "Please check the logs on HPC to understand what went wrong!")
@@ -82,7 +82,7 @@ class UnicoreSampler(DockerLocalSampler):
 
         client = self._connect_unicore()
         job = client.new_job(job_description=job_config, inputs=hpc_inputs)
-        print(job.working_dir.properties['mountPoint'])
+        self.logger.info(f'Mount point on HPC for job is: {job.working_dir.properties["mountPoint"]}')
 
         self._monitor_job(job)
 

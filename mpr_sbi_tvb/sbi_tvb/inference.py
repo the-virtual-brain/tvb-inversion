@@ -1,6 +1,7 @@
 import os
 import tempfile
 from copy import deepcopy
+from enum import Enum
 from typing import Callable, List
 import numpy as np
 import sbi.inference as sbi_inference
@@ -14,10 +15,17 @@ from tvb.simulator.backend.nb_mpr import NbMPRBackend
 from tvb.simulator.lab import simulator
 
 from sbi_tvb.features import FeaturesEnum, SummaryStatistics
+from sbi_tvb.logger.builder import get_logger
 from sbi_tvb.prior import Prior
 from sbi_tvb.sampler.local_samplers import LocalSampler
 from sbi_tvb.sampler.remote_sampler import UnicoreSampler
+
 from sbi_tvb.utils import custom_setattr
+
+
+class BackendEnum(Enum):
+    LOCAL = "local"
+    REMOTE = "remote"
 
 
 class TvbInference:
@@ -27,7 +35,7 @@ class TvbInference:
     def __init__(self, sim: simulator.Simulator,
                  priors: List[Prior],
                  features: List[FeaturesEnum] = None,
-                 remote: bool = False):
+                 output_dir: str = None):
         """
         Parameters
         -----------------------
@@ -37,11 +45,23 @@ class TvbInference:
         priors: List[Prior]
             list of priors. Define min, max of inferred attributes
 
-        summary_statistics: Callable
+        features: List[FeaturesEnum]
             custom function used to reduce dimension. This function which takes as input TVB simulator output and
             returns an array
+
+        output_dir: str
+            location to store output files
         """
+        if output_dir is None:
+            output_dir = os.getcwd()
+        self.output_dir = output_dir
+
+        if not os.path.exists(self.output_dir):
+            os.makedirs(self.output_dir)
+
+        self.logger = get_logger(self.__class__.__module__)
         populate_datatypes_registry()
+
         self.simulator = sim
         self.prior = self._build_prior(priors)
         self.priors_list = priors
@@ -52,9 +72,6 @@ class TvbInference:
         self.trained = False
         self.preparing_for_sbi = False
         self.inf_posterior = None
-        self.submit_simulation = self._submit_simulation_local
-        if remote:
-            self.submit_simulation = self._submit_simulation_remote
 
     def _build_prior(self, priors: List[Prior]):
         """
@@ -102,11 +119,9 @@ class TvbInference:
             self.backend = NbMPRBackend
 
         if not self.preparing_for_sbi:
-            print("Using params: {}".format(params))
+            self.logger.info("Using params: {}".format(params))
             self._set_sim_params(used_simulator, params)
-            temporal_average_time, temporal_average_data = self.submit_simulation(self.backend, used_simulator)
-        else:
-            temporal_average_time, temporal_average_data = self._submit_simulation_local(self.backend, used_simulator)
+        temporal_average_time, temporal_average_data = self._submit_simulation_local(self.backend, used_simulator)
 
         # TODO: Are these adjustments generic?
         temporal_average_time *= 10  # rescale time
@@ -130,33 +145,21 @@ class TvbInference:
                                                                             simulation_length=tvb_simulator.simulation_length)
         return temporal_average_time, temporal_average_data
 
-    def _submit_simulation_remote(self, backend, tvb_simulator):
-        """
-        Run TVB simulation remote on a HPC cluster.
-        """
-        import tempfile
+    def sample_priors(self, num_simulations, num_workers, backend=BackendEnum.LOCAL, project=None):
+        if backend == BackendEnum.REMOTE:
+            if project is None or len(project.strip()) == 0:
+                raise Exception("Please specify the HPC project to use for remote run!")
 
-        dir_name = tempfile.mkdtemp(prefix='simulator-', dir=os.getcwd())
-        print(f'Using dir {dir_name} for gid {tvb_simulator.gid}')
-        populate_datatypes_registry()
+            self.sample_priors_remote(num_simulations=num_simulations, num_workers=num_workers, project=project)
 
-        store_ht(tvb_simulator, dir_name)
-
-        ts_path = self._pyunicore_run(dir_name, tvb_simulator)
-
-        with np.load(ts_path) as data:
-            ts_data = data['data']
-            ts_time = data['time']
-
-        print(f"TODO: Submit {backend} and {tvb_simulator} to HPC backend")
-        # StorageInterface.remove_folder(dir_name)
-        return ts_time, ts_data
+        else:
+            self.sample_priors_locally(num_simulations=num_simulations, num_workers=num_workers)
 
     def sample_priors_remote(self, num_simulations, num_workers, project):
         used_simulator = deepcopy(self.simulator)
 
-        dir_name = tempfile.mkdtemp(prefix='simulator-', dir=os.getcwd())
-        print(f'Using dir {dir_name} for gid {used_simulator.gid}')
+        dir_name = tempfile.mkdtemp(prefix='simulator-', dir=self.output_dir)
+        self.logger.info(f'Using dir {dir_name} for gid {used_simulator.gid}')
         populate_datatypes_registry()
 
         store_ht(used_simulator, dir_name)
@@ -176,7 +179,7 @@ class TvbInference:
         summary_statistics = SummaryStatistics(BOLD_r_sim.reshape(-1), self.simulator.connectivity.weights.shape[0])
         return torch.as_tensor(summary_statistics.compute())
 
-    def sample_priors(self, backend=NbMPRBackend, save_path=None, num_simulations=20, num_workers=1):
+    def sample_priors_locally(self, backend=NbMPRBackend, num_simulations=20, num_workers=1):
         """
         Inference procedure. Although the inference function is defined in the SBI toolbox, the function below shows
         that you can potentially split the simulation step from the inference in case that it is needed.
@@ -188,7 +191,8 @@ class TvbInference:
         sim, prior = sbi_inference.prepare_for_sbi(self._MPR_simulator_wrapper, self.prior)
         self.preparing_for_sbi = False
         local_sampler = LocalSampler(num_simulations, num_workers)
-        theta, x = local_sampler.run(sim, prior, save_path, self.SIMULATIONS_RESULTS)
+
+        theta, x = local_sampler.run(sim, prior, self.output_dir, self.SIMULATIONS_RESULTS)
 
         self.theta = theta
         self.x = x
@@ -237,7 +241,7 @@ class TvbInference:
         self.trained = True
         return inf_posterior
 
-    def posterior(self, data, save_path=None):
+    def posterior(self, data):
         """
         Run actual inference
 
@@ -245,9 +249,6 @@ class TvbInference:
         ----------
         data: numpy array
             TS which will be inferred
-        save_path: str
-            directory where to save the results. If it is not set, current directory will be used.
-
         """
         if not self.trained:
             raise Exception("You have to train the neural network before generating distribution")
@@ -257,8 +258,7 @@ class TvbInference:
         num_samples = 1000
         posterior_samples = self.inf_posterior.sample((num_samples,), obs_summary_statistics,
                                                       sample_with='mcmc').numpy()
-        if save_path is None:
-            save_path = os.getcwd()
-        mysavepath = os.path.join(save_path, TvbInference.POSTERIOR_SAMPLES)
+
+        mysavepath = os.path.join(self.output_dir, TvbInference.POSTERIOR_SAMPLES)
         np.save(mysavepath, posterior_samples)
         return posterior_samples

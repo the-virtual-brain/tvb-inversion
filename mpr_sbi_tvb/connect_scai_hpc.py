@@ -1,6 +1,10 @@
 import pyunicore.client as unicore_client
 from base64 import b64encode
 
+from sbi_tvb.logger.builder import get_logger
+
+LOGGER = get_logger(__name__)
+
 if __name__ == "__main__":
     base_url = "https://draco-nginx:8080/DEMO-SITE/rest/core"
 
@@ -12,7 +16,7 @@ if __name__ == "__main__":
 
     transport = unicore_client.Transport(token, oidc=False)
     all_sites = unicore_client.get_sites(transport)
-    print(all_sites)
+    LOGGER.info(f'Available sites: {all_sites}')
 
     client = unicore_client.Client(transport, base_url)
     # client.properties
@@ -25,4 +29,4 @@ if __name__ == "__main__":
     # job.working_dir.listdir()
 
     jobs = client.get_jobs()
-    print(jobs[0].is_running())
+    LOGGER.info(f'Status of job is: {jobs[0].is_running()}')
