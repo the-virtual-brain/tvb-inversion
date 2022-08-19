@@ -1,4 +1,5 @@
 import os
+import time
 
 import numpy as np
 import sbi_tvb
@@ -42,7 +43,7 @@ def build_simulator():
 
     sim = simulator.Simulator(model=model,
                               connectivity=conn,
-                              coupling=coupling.Scaling(
+                              coupling=coupling.Linear(
                                   a=np.r_[2.45]
                               ),
                               conduction_speed=cond_speed,
@@ -54,13 +55,20 @@ def build_simulator():
 
 
 if __name__ == '__main__':
+    os.environ['CLB_AUTH'] = ''
     sim = build_simulator()
     print("Build TvbInference object")
     tvb_inference = TvbInference(sim=sim,
                                  priors=[Prior('coupling.a', 1.5, 3.2)])
 
     print("Sample priors")
-    tvb_inference.sample_priors(num_simulations=10, num_workers=1)
+    start = time.time()
+
+    tvb_inference.sample_priors_remote(num_simulations=10, num_workers=1)
+
+    end = time.time()
+    print("Time elapsed for sim:", end - start)
+
     print("Train")
     tvb_inference.train()
 
@@ -69,3 +77,12 @@ if __name__ == '__main__':
     print("Run Posterior")
     post_samples = tvb_inference.posterior(data=data)
     print(post_samples.mean())
+
+    end = time.time()
+    print("Time elapsed for all:", end - start)
+
+    sbi_tvb_path = os.path.dirname(os.path.dirname(sbi_tvb.__file__))
+    posterior = np.load(os.path.join(sbi_tvb_path, 'posterior_samples_jn_sim.npy'))
+
+    print(posterior.shape)
+    print(posterior.mean())

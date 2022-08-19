@@ -1,0 +1,40 @@
+# Build notebook image: docker build -f Dockerfile-run -t thevirtualbrain/tvb-run:inv-sbi --build-arg CACHE="$(date)" --build-arg TOKEN=<github_security_token> .
+FROM continuumio/miniconda3:4.12.0
+
+RUN apt-get -y update && apt-get -y install build-essential gcc
+
+USER root
+
+RUN conda update -n base -c defaults conda
+
+RUN conda create -y --name tvb-run python=3.8
+RUN /opt/conda/envs/tvb-run/bin/pip install --upgrade pip pyunicore
+RUN /opt/conda/envs/tvb-run/bin/pip install sbi==0.17.2
+
+ARG CACHE_TVB=now
+RUN cd /opt; \
+    git clone --depth 1 --branch master https://github.com/popaula937/tvb-root.git
+
+RUN cd /opt/tvb-root; \
+    git pull; \
+    cd scientific_library; \
+    /opt/conda/envs/tvb-run/bin/python setup.py install; \
+    cd ../framework_tvb; \
+    /opt/conda/envs/tvb-run/bin/python setup.py install; \
+    cd ../tvb_storage; \
+    /opt/conda/envs/tvb-run/bin/python setup.py install
+
+RUN /opt/conda/envs/tvb-run/bin/pip uninstall --y pyAesCrypt numba
+RUN /opt/conda/envs/tvb-run/bin/pip install pyAesCrypt numba
+
+ARG TOKEN=github_security_token
+ARG CACHE_INV=now
+RUN cd /opt; \
+    git clone --depth 1 --branch remote_api https://$TOKEN@github.com/the-virtual-brain/tvb-inversion.git
+
+RUN cd /opt/tvb-inversion; \
+    git pull; \
+    cd mpr_sbi_tvb; \
+    /opt/conda/envs/tvb-run/bin/python setup.py install
+
+WORKDIR /opt/tvb-inversion/docker
