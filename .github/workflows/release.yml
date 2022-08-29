@@ -27,6 +27,6 @@ jobs:
         run: |
           echo "Publishing on pypi..."
           echo "Please uncomment the line below when the package is ready for release!"
-#          twine upload dist/*
+          # twine upload dist/*
           rm -R dist
           rm -R build
