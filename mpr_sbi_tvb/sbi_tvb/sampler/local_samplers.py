@@ -14,8 +14,8 @@ class BaseSampler(object):
         self.num_simulations = num_simulations
         self.num_workers = num_workers
 
-    @staticmethod
-    def read_results(result):
+    def read_results(self, result):
+        self.logger.info(f'Reading priors sampling results from {result}...')
         with np.load(result) as f:
             theta = f['theta']
             x = f['x']

@@ -19,7 +19,6 @@ from sbi_tvb.logger.builder import get_logger
 from sbi_tvb.prior import Prior
 from sbi_tvb.sampler.local_samplers import LocalSampler
 from sbi_tvb.sampler.remote_sampler import UnicoreSampler
-
 from sbi_tvb.utils import custom_setattr
 
 
@@ -72,6 +71,7 @@ class TvbInference:
         self.trained = False
         self.preparing_for_sbi = False
         self.inf_posterior = None
+        self.sim_subfolder = None
 
     def _build_prior(self, priors: List[Prior]):
         """
@@ -114,6 +114,8 @@ class TvbInference:
         ----------
         params: list of inferred parameters. These params will be set on the TVB simulator
         """
+        self.logger.info("Launching simulation...")
+
         used_simulator = deepcopy(self.simulator)
         if self.backend is None:
             self.backend = NbMPRBackend
@@ -130,6 +132,7 @@ class TvbInference:
 
         R = scipy.signal.decimate(R_TAVG, 2250, n=None, ftype='fir', axis=0)
 
+        self.logger.info("Finished simulation...")
         return R.T
 
     def _submit_simulation_local(self, backend, tvb_simulator):
@@ -145,27 +148,29 @@ class TvbInference:
                                                                             simulation_length=tvb_simulator.simulation_length)
         return temporal_average_time, temporal_average_data
 
-    def sample_priors(self, num_simulations, num_workers, backend=BackendEnum.LOCAL, project=None):
+    def sample_priors(self, num_simulations, num_workers, backend=BackendEnum.LOCAL, unicore_config=None):
         if backend == BackendEnum.REMOTE:
-            if project is None or len(project.strip()) == 0:
-                raise Exception("Please specify the HPC project to use for remote run!")
+            if unicore_config is None:
+                raise Exception("Please provide a UNICORE configuration to specify the desired HPC project and site!")
 
-            self.sample_priors_remote(num_simulations=num_simulations, num_workers=num_workers, project=project)
+            self.sample_priors_remote(num_simulations=num_simulations, num_workers=num_workers,
+                                      unicore_config=unicore_config)
 
         else:
             self.sample_priors_locally(num_simulations=num_simulations, num_workers=num_workers)
 
-    def sample_priors_remote(self, num_simulations, num_workers, project):
+    def sample_priors_remote(self, num_simulations, num_workers, unicore_config):
+        self.logger.info(f'Sampling priors remotely on {unicore_config.site}...')
         used_simulator = deepcopy(self.simulator)
 
-        dir_name = tempfile.mkdtemp(prefix='simulator-', dir=self.output_dir)
-        self.logger.info(f'Using dir {dir_name} for gid {used_simulator.gid}')
+        self.sim_subfolder = tempfile.mkdtemp(prefix='simulator-', dir=self.output_dir)
+        self.logger.info(f'Using dir {self.sim_subfolder} to store simulator with gid {used_simulator.gid}')
         populate_datatypes_registry()
 
-        store_ht(used_simulator, dir_name)
+        store_ht(used_simulator, self.sim_subfolder)
 
-        remote_sampler = UnicoreSampler(num_simulations, num_workers, project)
-        theta, x = remote_sampler.run(used_simulator, dir_name, self.SIMULATIONS_RESULTS)
+        remote_sampler = UnicoreSampler(num_simulations, num_workers, unicore_config)
+        theta, x = remote_sampler.run(used_simulator, self.sim_subfolder, self.SIMULATIONS_RESULTS)
 
         self.theta = theta
         self.x = x
@@ -186,6 +191,7 @@ class TvbInference:
         For example, the simulation time for the wrappper is too long and you might want to parallelize on HPC facilities.
         The inference function produces a posterorior object, which contains a neural network for posterior density estimation
         """
+        self.logger.info('Sampling priors locally...')
         self.backend = backend
         self.preparing_for_sbi = True
         sim, prior = sbi_inference.prepare_for_sbi(self._MPR_simulator_wrapper, self.prior)
@@ -208,6 +214,7 @@ class TvbInference:
         load_path: str
             Path to the file which contains info about theta and simulator output.
         """
+        self.logger.info(f'Starting training with {method}...')
         try:
             method_fun: Callable = getattr(sbi_inference, method.upper())
         except AttributeError:
@@ -239,6 +246,8 @@ class TvbInference:
 
         self.inf_posterior = inf_posterior
         self.trained = True
+
+        self.logger.info(f'Finished training with {method}...')
         return inf_posterior
 
     def posterior(self, data):
@@ -250,6 +259,7 @@ class TvbInference:
         data: numpy array
             TS which will be inferred
         """
+        self.logger.info(f'Starting inference...')
         if not self.trained:
             raise Exception("You have to train the neural network before generating distribution")
 
@@ -258,7 +268,15 @@ class TvbInference:
         num_samples = 1000
         posterior_samples = self.inf_posterior.sample((num_samples,), obs_summary_statistics,
                                                       sample_with='mcmc').numpy()
+        self.logger.info(f'Finished inference...')
 
-        mysavepath = os.path.join(self.output_dir, TvbInference.POSTERIOR_SAMPLES)
-        np.save(mysavepath, posterior_samples)
+        if self.sim_subfolder is None:
+            posterior_path = os.path.join(self.output_dir, TvbInference.POSTERIOR_SAMPLES)
+        else:
+            posterior_path = os.path.join(self.output_dir, self.sim_subfolder, TvbInference.POSTERIOR_SAMPLES)
+
+        self.logger.info(f'Saving posterior samples at {posterior_path}...')
+        np.save(posterior_path, posterior_samples)
+
+        self.logger.info(f'Posterior samples mean value is {posterior_samples.mean()}')
         return posterior_samples

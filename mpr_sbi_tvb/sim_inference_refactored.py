@@ -1,12 +1,11 @@
 import os
-import time
 import numpy as np
+from tvb.simulator.lab import *
+
 import sbi_tvb
 from sbi_tvb.inference import TvbInference, BackendEnum
 from sbi_tvb.prior import Prior
-from tvb.simulator.lab import *
-
-LOGGER = get_logger(__name__)
+from sbi_tvb.sampler.remote_sampler import UnicoreConfig
 
 
 def build_simulator():
@@ -59,31 +58,16 @@ if __name__ == '__main__':
     os.environ['CLB_AUTH'] = ''
     sim = build_simulator()
 
-    LOGGER.info("Build TvbInference object")
     output_dir = os.path.join(os.path.dirname(os.path.dirname(os.getcwd())), 'results')
     tvb_inference = TvbInference(sim=sim,
                                  priors=[Prior('coupling.a', 1.5, 3.2)],
                                  output_dir=output_dir)
 
-    LOGGER.info("Sample priors")
-    start = time.time()
+    unicore_config = UnicoreConfig(project='', site='DAINT-CSCS')
+    tvb_inference.sample_priors(num_simulations=10, num_workers=10,
+                                backend=BackendEnum.REMOTE,
+                                unicore_config=unicore_config)
 
-    tvb_inference.sample_priors(num_simulations=10, num_workers=1, backend=BackendEnum.REMOTE, project='')
-
-    end = time.time()
-    LOGGER.info("Time elapsed for sim:", end - start)
-
-    LOGGER.info("Train")
     tvb_inference.train()
-
-    LOGGER.info("Run observed simulation")
     data = tvb_inference.run_sim(2.2 * np.ones(1))
-    LOGGER.info("Run Posterior")
-    post_samples = tvb_inference.posterior(data=data)
-    LOGGER.info(f'Post samples mean value is {post_samples.mean()}')
-
-    end = time.time()
-    LOGGER.info("Time elapsed for all:", end - start)
-
-    posterior = np.load(os.path.join(tvb_inference.output_dir, tvb_inference.POSTERIOR_SAMPLES))
-    LOGGER.info(f'Posterior shape is {posterior.shape} and mean value is {posterior.mean()}')
+    tvb_inference.posterior(data=data)
