@@ -18,7 +18,7 @@ from sbi_tvb.features import FeaturesEnum, SummaryStatistics
 from sbi_tvb.logger.builder import get_logger
 from sbi_tvb.prior import Prior
 from sbi_tvb.sampler.local_samplers import LocalSampler
-from sbi_tvb.sampler.remote_sampler import UnicoreSampler
+from sbi_tvb.sampler.remote_sampler import UnicoreSampler, UnicoreConfig
 from sbi_tvb.utils import custom_setattr
 
 
@@ -150,7 +150,7 @@ class TvbInference:
 
     def sample_priors(self, num_simulations, num_workers, backend=BackendEnum.LOCAL, unicore_config=None):
         if backend == BackendEnum.REMOTE:
-            if unicore_config is None:
+            if unicore_config is None or type(unicore_config) is not UnicoreConfig:
                 raise Exception("Please provide a UNICORE configuration to specify the desired HPC project and site!")
 
             self.sample_priors_remote(num_simulations=num_simulations, num_workers=num_workers,

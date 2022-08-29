@@ -1,7 +1,7 @@
 import os
 import pytest as pytest
 from tvb.simulator.simulator import Simulator
-from sbi_tvb.sampler.remote_sampler import UnicoreSampler
+from sbi_tvb.sampler.remote_sampler import UnicoreSampler, UnicoreConfig
 
 
 class MockFilePath:
@@ -36,20 +36,33 @@ class MockPyUnicoreJob:
         return self.isrunning
 
 
+def test_unicore_sampler():
+    with pytest.raises(Exception):
+        UnicoreConfig(None, 'TEST_SITE')
+
+    with pytest.raises(Exception):
+        UnicoreConfig('TEST_PRJ', '')
+
+    with pytest.raises(Exception):
+        UnicoreSampler(1, 1, UnicoreConfig('TEST_PRJ', 'TEST_SITE'))._connect_unicore()
+
+
 def test_unicore_sampler_failed_auth():
     with pytest.raises(Exception):
-        UnicoreSampler(1, 1, 'test')._connect_unicore()
+        UnicoreSampler(1, 1, UnicoreConfig('TEST_PRJ', 'TEST_SITE'))._connect_unicore()
 
 
 def test_unicore_sampler_passed_auth():
     os.environ['CLB_AUTH'] = 'test_token'
-    token = UnicoreSampler(1, 1, 'test')._retrieve_token()
+    unicore_config = UnicoreConfig('TEST_PRJ', 'TEST_SITE')
+
+    token = UnicoreSampler(1, 1, unicore_config)._retrieve_token()
     assert token == os.environ['CLB_AUTH']
     os.environ.pop('CLB_AUTH')
 
 
 def test_unicore_sampler_prepare_unicore_job():
-    sampler = UnicoreSampler(1, 1, 'test')
+    sampler = UnicoreSampler(1, 1, UnicoreConfig('TEST_PRJ', 'TEST_SITE'))
     job = sampler._prepare_unicore_job(Simulator())
     assert type(job) is dict
     assert all(key in job.keys() for key in ['Executable', 'Arguments', 'Project', 'Resources'])
@@ -62,14 +75,14 @@ def test_unicore_sampler_prepare_unicore_job():
 def test_unicore_sampler_stage_out_results():
     job = MockPyUnicoreJob()
 
-    sampler = UnicoreSampler(1, 1, 'test')
+    sampler = UnicoreSampler(1, 1, UnicoreConfig('TEST_PRJ', 'TEST_SITE'))
     sampler._stage_out_results(job, 'file1')
 
 
 def test_unicore_sampler_stage_out_results_failed():
     job = MockPyUnicoreJob()
 
-    sampler = UnicoreSampler(1, 1, 'test')
+    sampler = UnicoreSampler(1, 1, UnicoreConfig('TEST_PRJ', 'TEST_SITE'))
 
     with pytest.raises(Exception):
         sampler._stage_out_results(job, 'file_that_does_not_exist')
