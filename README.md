@@ -36,17 +36,17 @@ Each user should choose the preferred backend within this API:
 - remotely (an HPC project and site have to be chosen by instantiating the UnicoreConfig object)
 
 
-    unicore_config = UnicoreConfig(project='hpc_project', site='DAINT-CSCS')
-    tvb_inference.sample_priors(num_simulations=10, 
-                                num_workers=10, 
-                                backend=BackendEnum.REMOTE,
-                                unicore_config=unicore_config)
+      unicore_config = UnicoreConfig(project='hpc_project', site='DAINT-CSCS')
+      tvb_inference.sample_priors(num_simulations=10, 
+                                  num_workers=10, 
+                                  backend=BackendEnum.REMOTE,
+                                  unicore_config=unicore_config)
 
 - locally
 
 
-    tvb_inference.sample_priors(num_simulations=10,
-                                num_workers=10)
+      tvb_inference.sample_priors(num_simulations=10,
+                                  num_workers=10)
 
 
 The fourth step can also be accessed from TVBInference object and can run locally:
