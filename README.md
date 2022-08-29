@@ -63,7 +63,7 @@ And finally, the last step to compute posterior estimation receives as argument 
 Examples of usage are described in:
 
 - this python [script](https://github.com/the-virtual-brain/tvb-inversion/blob/main/mpr_sbi_tvb/sim_inference_refactored.py)
-- or these [notebooks](https://github.com/the-virtual-brain/tvb-inversion/tree/main/mpr_sbi_tvb/notebooks)
+- or this [notebook](https://github.com/the-virtual-brain/tvb-inversion/tree/main/mpr_sbi_tvb/notebooks/API_example.ipynb)
 
 ## Acknowledgments
 
