@@ -41,7 +41,6 @@ from tvb.datatypes.connectivity import Connectivity
 from tvb.simulator.simulator import Simulator
 import os
 from dask.distributed import Client
-from distributed.deploy.cluster import Cluster
 
 
 import logging
@@ -168,12 +167,12 @@ class JobLibExec:
 @dataclass
 class DaskExec(JobLibExec):
 
-    def __call__(self, cluster: Cluster):
+    def __call__(self, client: Client):
         self._init_checkpoint()
-        # weird - the delayed functions below don't work if cluster is passed during init  o_O
-
-        client = Client(cluster)
+        
         checkpoint_dir = self.checkpoint_dir
+        if checkpoint_dir is not None:
+            checkpoint_dir = os.path.abspath(checkpoint_dir)
 
         def _checkpoint(result, i):
             if checkpoint_dir is not None:

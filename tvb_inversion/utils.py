@@ -34,7 +34,7 @@ def run_local(seq: SimSeq, metrics: List[Metric], filename='results', reduction:
     exe(n_jobs=n_jobs)
     
 
-def run_dask(seq: SimSeq, metrics: List[Metric], cluster, filename='results', reduction: Reduction = None, backend=None, checkpoint_dir=None):
+def run_dask(seq: SimSeq, metrics: List[Metric], client, filename='results', reduction: Reduction = None, backend=None, checkpoint_dir=None):
     if reduction is None:
         reduction=SaveMetricsToDisk(filename)
     exe = DaskExec(
@@ -46,4 +46,4 @@ def run_dask(seq: SimSeq, metrics: List[Metric], cluster, filename='results', re
         backend=backend,
         checkpoint_dir=checkpoint_dir
     )
-    exe(cluster)
+    exe(client)
