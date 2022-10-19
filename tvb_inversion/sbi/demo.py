@@ -14,9 +14,9 @@ class BoldFCDForSBI(Metric): # pack all necessary functions to the metric callab
     def __init__(self, win_len=20, win_sp=1):
         self.win_len = win_len
         self.win_sp  = win_sp
-        self.n_vals = 7
-        self.summary_stats_labels = [ 'HOMO_FC', 'FCD_STACK_STD_INTER_TENS', 'FCD_SUBJ_DIFF_VAR_OV_TENS' ]
-        self.summary_stats_idx = [2,5,6]
+        self.n_vals = 9
+        self.summary_stats_labels = [ 'HOMO_FC', 'FCD_STACK_STD_INTER_TENS', 'FCD_SUBJ_DIFF_VAR_OV_TENS', 'FC_SUM', 'FCD_SUM'  ]
+        self.summary_stats_idx = [2,5,6,7,8]
 
 
     def __call__(self, t, y):
@@ -28,9 +28,8 @@ class BoldFCDForSBI(Metric): # pack all necessary functions to the metric callab
         if np.any(np.isnan(bold_d)): 
             log.error("NaN in the simulated BOLD")
             return np.array([None]*self.n_vals) # there should be a better way
-        HOMO_FC, FCD, FCD_inter, FCD_STACK_STD_INTER_TENS, FCD_SUBJ_DIFF_VAR_OV_TENS = compute_summary_statistics(bold_d, win_len=self.win_len, win_sp=self.win_sp)
         
-        return np.array([bold_t, bold_d, HOMO_FC, FCD, FCD_inter, FCD_STACK_STD_INTER_TENS, FCD_SUBJ_DIFF_VAR_OV_TENS]) # this is abuse
+        return np.array([bold_t, bold_d, *compute_summary_statistics(bold_d, win_len=self.win_len, win_sp=self.win_sp)], dtype=object) # this is abuse
 
 
 def tavg_to_bold(tavg_t, tavg_d, tavg_period, svar=0, decimate=2000):
@@ -59,7 +58,9 @@ def compute_summary_statistics(bold_d, win_len, win_sp):
     FCD_VAR_OV_vect           = np.var(np.triu(FCD, k=win_len))
     FCD_VAR_OV_INTER_vect     = np.var(np.triu(FCD_inter, k=win_len))
     FCD_SUBJ_DIFF_VAR_OV_TENS = FCD_VAR_OV_INTER_vect - FCD_VAR_OV_vect # this could be easily done in the final dataframe
-    return HOMO_FC, FCD, FCD_inter, FCD_STACK_STD_INTER_TENS, FCD_SUBJ_DIFF_VAR_OV_TENS
+    FC_SUM = np.sum(np.abs(rsFC)) - np.trace(np.abs(rsFC))
+    FCD_SUM = np.sum(np.abs(np.triu(FCD, k=win_len) + np.tril(FCD, k=-win_len))) 
+    return HOMO_FC, FCD, FCD_inter, FCD_STACK_STD_INTER_TENS, FCD_SUBJ_DIFF_VAR_OV_TENS, FC_SUM, FCD_SUM
 
 
 def compute_fcd(ts, win_len=30, win_sp=1):
@@ -285,8 +286,7 @@ class BalloonModel(HasTraits):
         state[0, 2, :] = 1.  # v
         state[0, 3, :] = 1.  # q
         # BOLD model coefficients
-        k = self.compute_derived_parameters()
-        k1, k2, k3 = k[0], k[1], k[2]
+        k1, k2, k3 = self.compute_derived_parameters() 
         # prepare integrator
         self.integrator.dt = self.dt
         self.integrator.configure()
@@ -357,7 +357,7 @@ class BalloonModel(HasTraits):
             k1 = 4.3 * self.nu_0 * self.E0 * self.TE
             k2 = self.epsilon * self.r_0 * self.E0 * self.TE
             k3 = 1 - self.epsilon
-        return numpy.array([k1, k2, k3])
+        return k1, k2, k3
     def input_transformation(self, time_series, mode):
         """
         Perform an operation on the input time-series.
