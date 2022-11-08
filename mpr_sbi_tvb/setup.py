@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-TVB_INVERSION_VERSION = '1.0.0'
+TVB_INVERSION_VERSION = '0.2.0'
 SBI_TVB_REQUIREMENTS = ["autopep8", "sbi==0.17.2", "scipy", "torch", "numpy", "tvb-framework"]
 TVB_INVERSION_TEAM = "Jan Fousek, Meysam Hashemi"
 
