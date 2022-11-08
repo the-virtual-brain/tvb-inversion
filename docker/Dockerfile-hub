@@ -1,3 +1,0 @@
-FROM jupyterhub/jupyterhub
-RUN python3 -m pip install dockerspawner
-RUN python3 -m pip install oauthenticator
