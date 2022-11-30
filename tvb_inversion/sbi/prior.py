@@ -1,31 +1,15 @@
-from typing import Union, List, Dict
-import numpy as np
+from typing import List
 from torch.distributions import Distribution
-from tvb_inversion.parameters import SimSeq
-from tvb.simulator.simulator import Simulator
+from tvb_inversion.base.prior import Prior
 
-class Prior:
-    def __init__(self, param: List[str], dist: Distribution):
-        self.param = param
-        self.dist = dist 
 
-    def __repr__(self):
-        return f'{self.param}, {self.dist}'
+class PytorchPrior(Prior):
 
-    def generate_sim_seq(self, sim: Simulator, num_samples: int):
-        # This function supports only scalar params, for other scenarios construct the values array manually
-        values = self.dist.sample((num_samples,)).numpy()
-        if values.ndim == 1:
-            values = values[:,np.newaxis]
-        
-        values = [
-            [np.r_[val] for val in row]
-            for row in values
-        ]
-        
-        return SimSeq(
-                template=sim,
-                params=self.param,
-                values=values
-        )
+    def __init__(self, names: List[str], dist: Distribution):
+        super().__init__(names, dist)
 
+    def sample(self, num_samples: int):
+        return self.dist.sample((num_samples,))
+
+    def sample_to_numpy(self, num_samples: int):
+        return self.sample(num_samples).numpy()

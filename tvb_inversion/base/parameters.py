@@ -56,7 +56,7 @@ class SimSeq:
     params: List[str]
     values: List[List[Any]]
     getters: Optional[List[Optional[ParamGetter]]] = None # is the first Optional needed?
-    # TODO consider transpose, so a param can have a remote data source
+    # TODO consider transpose, so a names can have a remote data source
     # to load when constructing the sequence
 
     def __iter__(self):

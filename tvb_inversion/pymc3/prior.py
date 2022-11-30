@@ -1,43 +1,15 @@
-from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Union
+from pymc3.model import FreeRV, TransformedRV, DeterministicWrapper
+from tvb_inversion.base.prior import Prior
 
 
-class Prior:
-    def __init__(
-            self,
-            param: Optional[List[str]] = None,
-            loc: Optional[List[float]] = None,
-            scale: Optional[List[float]] = None,
-            dist: Optional[List[str]] = None
-    ):
-        if param is None:
-            self.param = []
-        else:
-            self.param = param
-        if loc is None:
-            self.loc = []
-        else:
-            self.loc = loc
-        if scale is None:
-            self.scale = []
-        else:
-            self.scale = scale
-        if dist is None:
-            self.dist = []
-        else:
-            self.dist = dist
+class Pymc3Prior(Prior):
 
-        self._update_attrs()
+    def __init__(self, names: List[str], dist: List[Union[FreeRV, TransformedRV, DeterministicWrapper]]):
+        super().__init__(names, dist)
 
-    def _update_attrs(self):
-        for p, l, s, d in zip(self.param, self.loc, self.scale, self.dist):
-            exec(f"self.{p} = {dict(loc=l, scale=s, dist=d)}", {"self": self})
+    def sample(self, num_samples: int):
+        return [d.distribution.random(size=(num_samples, )) for d in self.dist]
 
-    def append(self, param: str, loc: float, scale: float, dist: str):
-        self.param.append(param)
-        self.loc.append(loc)
-        self.scale.append(scale)
-        self.dist.append(dist)
-
-        self._update_attrs()
-
+    def sample_to_numpy(self, num_samples: int):
+        self.sample(num_samples)
