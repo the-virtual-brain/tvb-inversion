@@ -2,64 +2,63 @@ import numpy as np
 from tvb.analyzers.fmri_balloon import BalloonModel
 from tvb.datatypes.time_series import TimeSeries
 
-from tvb_inversion.parameters import Metric
+from tvb_inversion.base.parameters import Metric
 import logging
+
 log = logging.getLogger(__name__)
-import pandas as pd
 
 
 # this would be more elegant if the bold monitor was part of the backend
 # then we can simplify and split this into individual metrics 
-class BoldFCDForSBI(Metric): # pack all necessary functions to the metric callable
+class BoldFCDForSBI(Metric):  # pack all necessary functions to the metric callable
     def __init__(self, win_len=20, win_sp=1):
         self.win_len = win_len
-        self.win_sp  = win_sp
+        self.win_sp = win_sp
         self.n_vals = 9
-        self.summary_stats_labels = [ 'HOMO_FC', 'FCD_STACK_STD_INTER_TENS', 'FCD_SUBJ_DIFF_VAR_OV_TENS', 'FC_SUM', 'FCD_SUM'  ]
-        self.summary_stats_idx = [2,5,6,7,8]
-
+        self.summary_stats_labels = ['HOMO_FC', 'FCD_STACK_STD_INTER_TENS', 'FCD_SUBJ_DIFF_VAR_OV_TENS', 'FC_SUM', 'FCD_SUM']
+        self.summary_stats_idx = [2, 5, 6, 7, 8]
 
     def __call__(self, t, y):
         t *= 10.
-        if np.any(np.isnan(y)): 
+        if np.any(np.isnan(y)):
             log.error("NaN in the simulated time series")
-            return np.array([None]*self.n_vals) # there should be a better way
-        bold_t, bold_d = tavg_to_bold(t, y, 1.) # TODO check for NaN and skip next steps in that case
-        if np.any(np.isnan(bold_d)): 
+            return np.array([None] * self.n_vals)  # there should be a better way
+        bold_t, bold_d = tavg_to_bold(t, y, 1.)  # TODO check for NaN and skip next steps in that case
+        if np.any(np.isnan(bold_d)):
             log.error("NaN in the simulated BOLD")
-            return np.array([None]*self.n_vals) # there should be a better way
-        
-        return np.array([bold_t, bold_d, *compute_summary_statistics(bold_d, win_len=self.win_len, win_sp=self.win_sp)], dtype=object) # this is abuse
+            return np.array([None] * self.n_vals)  # there should be a better way
+
+        return np.array([bold_t, bold_d, *compute_summary_statistics(bold_d, win_len=self.win_len, win_sp=self.win_sp)], dtype=object)  # this is abuse
 
 
 def tavg_to_bold(tavg_t, tavg_d, tavg_period, svar=0, decimate=2000):
     tsr = TimeSeries(
-        data = tavg_d[:,[svar],:,:],
-        time = tavg_t,
-        sample_period = tavg_period
+        data=tavg_d[:, [svar], :, :],
+        time=tavg_t,
+        sample_period=tavg_period
     )
     tsr.configure()
-    bold_model = BalloonModel(time_series = tsr, dt=tavg_period/1000)
-    bold_data_analyzer  = bold_model.evaluate()
-    bold_t = bold_data_analyzer.time[::decimate] * 1000 # to ms
-    bold_d = bold_data_analyzer.data[::decimate,:]
-    return bold_t, bold_d 
+    bold_model = BalloonModel(time_series=tsr, dt=tavg_period / 1000)
+    bold_data_analyzer = bold_model.evaluate()
+    bold_t = bold_data_analyzer.time[::decimate] * 1000  # to ms
+    bold_d = bold_data_analyzer.data[::decimate, :]
+    return bold_t, bold_d
 
 
 def compute_summary_statistics(bold_d, win_len, win_sp):
     N = bold_d.shape[2]
-    NHALF = N//2
-    _ , inter_mask = get_masks(N)
-    rsFC = compute_fc(bold_d[:,0,:,0].T)        
-    HOMO_FC = np.mean(np.diag(rsFC,k=NHALF))
-    FCD, _ = compute_fcd(bold_d[:,0,:,0], win_len=win_len, win_sp=win_sp)
-    FCD_inter, fc_stack_inter, _ = compute_fcd_filt(bold_d[:,0,:,0], mat_filt=inter_mask, win_len=win_len, win_sp=win_sp )
-    FCD_STACK_STD_INTER_TENS  = np.std(fc_stack_inter) # FCD_OSC_OV_INTER_vect
-    FCD_VAR_OV_vect           = np.var(np.triu(FCD, k=win_len))
-    FCD_VAR_OV_INTER_vect     = np.var(np.triu(FCD_inter, k=win_len))
-    FCD_SUBJ_DIFF_VAR_OV_TENS = FCD_VAR_OV_INTER_vect - FCD_VAR_OV_vect # this could be easily done in the final dataframe
+    NHALF = N // 2
+    _, inter_mask = get_masks(N)
+    rsFC = compute_fc(bold_d[:, 0, :, 0].T)
+    HOMO_FC = np.mean(np.diag(rsFC, k=NHALF))
+    FCD, _ = compute_fcd(bold_d[:, 0, :, 0], win_len=win_len, win_sp=win_sp)
+    FCD_inter, fc_stack_inter, _ = compute_fcd_filt(bold_d[:, 0, :, 0], mat_filt=inter_mask, win_len=win_len, win_sp=win_sp)
+    FCD_STACK_STD_INTER_TENS = np.std(fc_stack_inter)  # FCD_OSC_OV_INTER_vect
+    FCD_VAR_OV_vect = np.var(np.triu(FCD, k=win_len))
+    FCD_VAR_OV_INTER_vect = np.var(np.triu(FCD_inter, k=win_len))
+    FCD_SUBJ_DIFF_VAR_OV_TENS = FCD_VAR_OV_INTER_vect - FCD_VAR_OV_vect  # this could be easily done in the final dataframe
     FC_SUM = np.sum(np.abs(rsFC)) - np.trace(np.abs(rsFC))
-    FCD_SUM = np.sum(np.abs(np.triu(FCD, k=win_len) + np.tril(FCD, k=-win_len))) 
+    FCD_SUM = np.sum(np.abs(np.triu(FCD, k=win_len) + np.tril(FCD, k=-win_len)))
     return HOMO_FC, FCD, FCD_inter, FCD_STACK_STD_INTER_TENS, FCD_SUBJ_DIFF_VAR_OV_TENS, FC_SUM, FCD_SUM
 
 
@@ -77,14 +76,15 @@ def compute_fcd(ts, win_len=30, win_sp=1):
     fc_triu_ids = np.triu_indices(n_nodes, 1)
     n_fcd = len(fc_triu_ids[0])
     fc_stack = []
-    for t0 in range( 0, ts.shape[0]-win_len, win_sp ):
-        t1=t0+win_len
-        fc = np.corrcoef(ts[t0:t1,:].T)
+    for t0 in range(0, ts.shape[0] - win_len, win_sp):
+        t1 = t0 + win_len
+        fc = np.corrcoef(ts[t0:t1, :].T)
         fc = fc[fc_triu_ids]
         fc_stack.append(fc)
     fcs = np.array(fc_stack)
     FCD = np.corrcoef(fcs)
     return FCD, fcs
+
 
 def compute_fcd_filt(ts, mat_filt, win_len=30, win_sp=1):
     """Compute dynamic functional connectivity with FC matrix filtering
@@ -98,52 +98,53 @@ def compute_fcd_filt(ts, mat_filt, win_len=30, win_sp=1):
         fcs: windowed functional connectivity matrices
         speed_fcd: rate of changes between FC frames
     """
-    n_samples, n_nodes = ts.shape 
-    fc_triu_ids = np.triu_indices(n_nodes, 1) #returns the indices for upper triangle
-    n_fcd = len(fc_triu_ids[0]) #
-    fc_stack    = []
+    n_samples, n_nodes = ts.shape
+    fc_triu_ids = np.triu_indices(n_nodes, 1)  # returns the indices for upper triangle
+    n_fcd = len(fc_triu_ids[0])
+    fc_stack = []
     speed_stack = []
-    for t0 in range( 0, ts.shape[0]-win_len, win_sp ):
-        t1=t0+win_len
-        fc = np.corrcoef(ts[t0:t1,:].T)
-        fc = fc*(fc>0)*(mat_filt)
+    for t0 in range(0, ts.shape[0] - win_len, win_sp):
+        t1 = t0 + win_len
+        fc = np.corrcoef(ts[t0:t1, :].T)
+        fc = fc * (fc > 0) * (mat_filt)
         fc = fc[fc_triu_ids]
         fc_stack.append(fc)
-        if t0 > 0 :
-            corr_fcd  = np.corrcoef([fc,fc_prev])[0,1]
-            speed_fcd = 1-corr_fcd
+        if t0 > 0:
+            corr_fcd = np.corrcoef([fc, fc_prev])[0, 1]
+            speed_fcd = 1 - corr_fcd
             speed_stack.append(speed_fcd)
-            fc_prev   = fc
+            fc_prev = fc
         else:
-            fc_prev   = fc
-            
-    fcs      = np.array(fc_stack)
+            fc_prev = fc
+
+    fcs = np.array(fc_stack)
     speed_ts = np.array(speed_stack)
     FCD = np.corrcoef(fcs)
     return FCD, fcs, speed_ts
 
+
 def compute_fc(bold_d):
     rsFC = np.corrcoef(bold_d)
-    rsFC = rsFC * (rsFC>0)
+    rsFC = rsFC * (rsFC > 0)
     rsFC = rsFC - np.diag(np.diagonal(rsFC))
     return rsFC
 
 
 def get_masks(N):
-    intra_mask = np.zeros((N,N), dtype=np.bool)
-    N = N//2
-    intra_mask[:N,:N] = 1
-    intra_mask[N:,N:] = 1
+    intra_mask = np.zeros((N, N), dtype=np.bool)
+    N = N // 2
+    intra_mask[:N, :N] = 1
+    intra_mask[N:, N:] = 1
     inter_mask = ~intra_mask
     return intra_mask, inter_mask
-
-
 
 
 import tvb.datatypes.time_series as time_series
 from tvb.basic.neotraits.api import HasTraits, Attr, NArray, Range, Float
 import tvb.simulator.integrators as integrators_module
 import numpy
+
+
 # need to investigate bit more, before that and the subsequent fix, we use
 # modified version.
 class BalloonModel(HasTraits):
@@ -258,6 +259,7 @@ class BalloonModel(HasTraits):
         required=True,
         doc=""" BOLD parameter. Slope r0 of intravascular relaxation rate (Hz). Only used for
         ``revised`` coefficients. """)
+
     def evaluate(self):
         """
         Calculate simulated BOLD signal
@@ -286,7 +288,7 @@ class BalloonModel(HasTraits):
         state[0, 2, :] = 1.  # v
         state[0, 3, :] = 1.  # q
         # BOLD model coefficients
-        k1, k2, k3 = self.compute_derived_parameters() 
+        k1, k2, k3 = self.compute_derived_parameters()
         # prepare integrator
         self.integrator.dt = self.dt
         self.integrator.configure()
@@ -300,7 +302,7 @@ class BalloonModel(HasTraits):
         if numpy.isnan(neural_activity).any():
             self.log.warning("NaNs detected in the neural activity!!")
         # normalise the time-series.
-        #neural_activity = neural_activity - neural_activity.mean(axis=0)[numpy.newaxis, :]
+        # neural_activity = neural_activity - neural_activity.mean(axis=0)[numpy.newaxis, :]
         # solve equations
         for step in range(1, t_int.shape[0]):
             state[step, :] = scheme(state[step - 1, :], self.balloon_dfun,
@@ -336,6 +338,7 @@ class BalloonModel(HasTraits):
             sample_period=sample_period,
             sample_period_unit='s')
         return bold_signal
+
     def compute_derived_parameters(self):
         """
         Compute derived parameters :math:`k_1`, :math:`k_2` and :math:`k_3`.
@@ -358,6 +361,7 @@ class BalloonModel(HasTraits):
             k2 = self.epsilon * self.r_0 * self.E0 * self.TE
             k3 = 1 - self.epsilon
         return k1, k2, k3
+
     def input_transformation(self, time_series, mode):
         """
         Perform an operation on the input time-series.
@@ -379,6 +383,7 @@ class BalloonModel(HasTraits):
             self.log.error("('abs_diff', 'sum', 'none')")
             raise Exception("Bad transformation mode")
         return ts, t_int
+
     def balloon_dfun(self, state_variables, neural_input, local_coupling=0.0):
         r"""
         The Balloon model equations. See Eqs. (4-10) in [Stephan2007]_
@@ -401,17 +406,20 @@ class BalloonModel(HasTraits):
         dq = (1. / self.tau_o) * ((f * (1. - (1. - self.E0) ** (1. / f)) / self.E0) -
                                   (v ** (1. / self.alpha)) * (q / v))
         return numpy.array([ds, df, dv, dq])
+
     def result_shape(self, input_shape):
         """Returns the shape of the main result of fmri balloon ..."""
         result_shape = (input_shape[0], input_shape[1],
                         input_shape[2], input_shape[3])
         return result_shape
+
     def result_size(self, input_shape):
         """
         Returns the storage size in Bytes of the main result of .
         """
         result_size = numpy.sum(list(map(numpy.prod, self.result_shape(input_shape)))) * 8.0  # Bytes
         return result_size
+
     def extended_result_size(self, input_shape):
         """
         Returns the storage size in Bytes of the extended result of the ....

@@ -60,10 +60,17 @@ sim = simulator.Simulator(
 Next, a prior distribution is defined using the `Prior` class. The dimensions of the prior points to attributes in the simulator instance, and the distribution is given by any class supporting the `.sample` and `.log_prob()` methods (e.g. the distributions from PyTorch). Here a one-dimensional uniform prior is given for the coupling strength parameter:
 
 ```python
-from tvb_inversion.sbi import Prior
+from tvb_inversion.sbi.prior import PytorchPrior
 import torch
 
-prior = Prior(['coupling.a'], torch.distributions.Uniform(0.1, 1.2))
+prior = PytorchPrior(names=['coupling.a'], dist=torch.distributions.Uniform(0.1, 1.2))
+```
+
+From the simulator and the prior we create statistical model:
+```python
+from tvb_inversion.sbi.sbi_model import sbiModel
+
+sbi_model = sbiModel(sim, prior)
 ```
 
 And lastly, the summary statistics have to be defined - a function which converts the outputs of the simulator to a list of scalar data features. See the `demo.py` for an example.
@@ -73,13 +80,13 @@ And lastly, the summary statistics have to be defined - a function which convert
 This step makes use of the `parameters` API allowing to configure and perform large parameter sweeps with TVB.  We start with drawing a sample from the prior using the `generate_sim_seq` method. This returns an instance of  `parameters.SimSeq` - simulation sequence comprised of template simulator and the list of parameter value combinations. 
 
 ```python
-seq = prior.generate_sim_seq(sim, 4000) # sample 4000 values from the prior
+seq = sbi_model.generate_sim_seq(4000) # sample 4000 values from the prior
 ```
 
-The summary statistics are then wrapped in a single callable following the `parameters.Metric` signature, that is taking the TVB time and data output vectors, and producing a list of scalar values. See the `sbi.demo.BoldFCDForSBI` for an example. 
+The summary statistics are then wrapped in a single callable following the `parameters.Metric` signature, that is taking the TVB time and data output vectors, and producing a list of scalar values. See the `sbi.demo.BoldFCDForSBI` for an example.
 
 ```python
-from tvb_inversion.parameters import SimSeq
+from tvb_inversion.base.parameters import SimSeq
 
 metrics = [BoldFCDForSBI(win_len=15)]
 ```
@@ -99,7 +106,7 @@ When the simulations finish, we can continue with training the estimator and con
 ```python
 from tvb_inversion.sbi import EstimatorSBI
 
-estimator = EstimatorSBI(prior, seq=seq, metrics=metrics)
+estimator = EstimatorSBI(stats_model=sbi_model, seq=seq, metrics=metrics)
 summ_stats = estimator.load_summary_stats('results.npy')
 ```
 

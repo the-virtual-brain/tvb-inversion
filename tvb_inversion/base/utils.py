@@ -1,12 +1,7 @@
-import functools
-import itertools
-from typing import List, Any, Optional
-import sbi.inference
+from typing import List
 import os
-import numpy as np
-import pandas as pd
 
-from .parameters import SimSeq, JobLibExec, Metric, PostProcess, SaveMetricsToDisk, Reduction, DaskExec
+from tvb_inversion.base.parameters import SimSeq, JobLibExec, Metric, PostProcess, SaveMetricsToDisk, Reduction, DaskExec
 
 def data_path(relp):
     data_root = os.path.abspath(
