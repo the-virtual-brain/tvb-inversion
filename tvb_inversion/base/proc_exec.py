@@ -33,19 +33,20 @@ A collection of parameter related classes and functions.
 
 """
 
+import os
 from copy import deepcopy
 from typing import List, Any, Optional
 from dataclasses import dataclass, field
 import numpy as np
 from tvb.datatypes.connectivity import Connectivity
 from tvb.simulator.simulator import Simulator
-import os
 from dask.distributed import Client
-
-import logging
 
 from tvb_inversion.base.metrics import Metric, NodeVariability
 from tvb_inversion.base.sim_seq import SimSeq
+
+import logging
+
 
 log = logging.getLogger(__name__)
 
@@ -101,8 +102,8 @@ class JobLibExec:
                 # TODO consistency check
             else:
                 os.mkdir(self.checkpoint_dir)
-                np.savetxt( os.path.join(self.checkpoint_dir, 'params.txt'), self.seq.params, fmt='%s')
-                np.save( os.path.join(self.checkpoint_dir, 'param_vals.npy'), self.seq.values)
+                np.savetxt(os.path.join(self.checkpoint_dir, 'params.txt'), self.seq.params, fmt='%s')
+                np.save(os.path.join(self.checkpoint_dir, 'param_vals.npy'), self.seq.values)
 
     def __call__(self, n_jobs=-1):
         self._init_checkpoint()
