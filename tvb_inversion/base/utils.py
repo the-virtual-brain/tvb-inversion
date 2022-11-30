@@ -1,7 +1,9 @@
 from typing import List
 import os
 
-from tvb_inversion.base.parameters import SimSeq, JobLibExec, Metric, PostProcess, SaveMetricsToDisk, Reduction, DaskExec
+from tvb_inversion.base.parameters import \
+    SimSeq, JobLibExec, Metric, PostProcess, SaveMetricsToDisk, Reduction, DaskExec
+
 
 def data_path(relp):
     data_root = os.path.abspath(
@@ -14,7 +16,9 @@ def data_path(relp):
     )
     return os.path.join(data_root, os.path.normpath(relp))
 
-def run_local(seq: SimSeq, metrics: List[Metric], filename='results', reduction: Reduction = None, backend=None, checkpoint_dir=None, n_jobs=-1):
+
+def run_local(seq: SimSeq, metrics: List[Metric], filename='results',
+              reduction: Reduction = None, backend=None, checkpoint_dir=None, n_jobs=-1):
     if reduction is None:
         reduction=SaveMetricsToDisk(filename)
     exe = JobLibExec(
@@ -29,7 +33,8 @@ def run_local(seq: SimSeq, metrics: List[Metric], filename='results', reduction:
     exe(n_jobs=n_jobs)
     
 
-def run_dask(seq: SimSeq, metrics: List[Metric], client, filename='results', reduction: Reduction = None, backend=None, checkpoint_dir=None):
+def run_dask(seq: SimSeq, metrics: List[Metric], client, filename='results',
+             reduction: Reduction = None, backend=None, checkpoint_dir=None):
     if reduction is None:
         reduction=SaveMetricsToDisk(filename)
     exe = DaskExec(
