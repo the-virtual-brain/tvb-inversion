@@ -1,3 +1,4 @@
+
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import List, Any, Optional
@@ -10,10 +11,11 @@ class ParamGetter:
 @dataclass
 class SimSeq:
     "A sequence of simulator configurations."
+
     template: Simulator
     params: List[str]
     values: List[List[Any]]
-    getters: Optional[List[Optional[ParamGetter]]] = None # is the first Optional needed?
+    getters: Optional[List[Optional[ParamGetter]]] = None  # is the first Optional needed?
     # TODO consider transpose, so a names can have a remote data source
     # to load when constructing the sequence
 
@@ -22,7 +24,7 @@ class SimSeq:
         return self
 
     def __post_init__(self):
-        self.template.configure() # deepcopy doesn't work on un-configured simulator o_O
+        self.template.configure()  # deepcopy doesn't work on un-configured simulator o_O
         if self.getters is None:
             self.getters = [None]*len(self.params)
         else:
