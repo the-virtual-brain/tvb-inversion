@@ -8,7 +8,8 @@ import pandas as pd
 from tvb_inversion.base.inference import Estimator, zscore, shrinkage
 from tvb_inversion.sbi.stats_model import SBIModel
 from tvb_inversion.logger.builder import get_logger
-from tvb_inversion.base.parameters import SimSeq, Metric
+from tvb_inversion.base.metrics import Metric
+from tvb_inversion.base.sim_seq import SimSeq
 
 
 class EstimatorSBI(Estimator):

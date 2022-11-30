@@ -2,7 +2,7 @@ import numpy as np
 from tvb.analyzers.fmri_balloon import BalloonModel
 from tvb.datatypes.time_series import TimeSeries
 
-from tvb_inversion.base.parameters import Metric
+from tvb_inversion.base.metrics import Metric
 import logging
 
 log = logging.getLogger(__name__)

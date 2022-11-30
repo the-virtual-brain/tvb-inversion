@@ -87,7 +87,8 @@ seq = sbi_model.generate_sim_seq(4000) # sample 4000 values from the prior
 The summary statistics are then wrapped in a single callable following the `parameters.Metric` signature, that is taking the TVB time and data output vectors, and producing a list of scalar values. See the `sbi.demo.BoldFCDForSBI` for an example.
 
 ```python
-from tvb_inversion.base.parameters import SimSeq
+
+from tvb_inversion.base.sim_seq import SimSeq
 
 metrics = [BoldFCDForSBI(win_len=15)]
 ```

@@ -1,6 +1,6 @@
 import numpy as np
 from tvb_inversion.base.prior import Prior
-from tvb_inversion.base.parameters import SimSeq
+from tvb_inversion.base.sim_seq import SimSeq
 from tvb.simulator.simulator import Simulator
 
 

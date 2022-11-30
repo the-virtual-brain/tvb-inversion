@@ -1,8 +1,10 @@
 from typing import List
 import os
 
-from tvb_inversion.base.parameters import \
-    SimSeq, JobLibExec, Metric, PostProcess, SaveMetricsToDisk, Reduction, DaskExec
+from tvb_inversion.base.proc_exec import \
+    JobLibExec, PostProcess, SaveMetricsToDisk, Reduction, DaskExec
+from tvb_inversion.base.metrics import Metric
+from tvb_inversion.base.sim_seq import SimSeq
 
 
 def data_path(relp):
