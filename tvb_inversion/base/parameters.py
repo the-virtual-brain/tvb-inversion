@@ -42,9 +42,10 @@ from tvb.simulator.simulator import Simulator
 import os
 from dask.distributed import Client
 
-
 import logging
+
 log = logging.getLogger(__name__)
+
 
 class ParamGetter:
     pass
@@ -83,18 +84,22 @@ class SimSeq:
         self.pos += 1
         return obj
 
+
 class Metric:
     "A summary statistic for a simulation."
     def __call__(self, t, y) -> np.ndarray: # what about multi metric returning dict of statistics? Also, chaining?
         pass
+
 
 class NodeVariability(Metric):
     "A simplistic simulation statistic."
     def __call__(self, t, y):
         return np.std(y[t > (t[-1] / 2), 0, :, 0], axis=0)
 
+
 class Reduction:
     pass
+
 
 @dataclass
 class SaveMetricsToDisk(Reduction):
@@ -105,13 +110,16 @@ class SaveMetricsToDisk(Reduction):
 
 # or save to a bucket or do SNPE then to a bucket, etc.
 
+
 @dataclass
 class PostProcess:
     metrics: List[Metric]
     reduction: Reduction
 
+
 class Exec:
     pass
+
 
 @dataclass
 class JobLibExec:
@@ -133,7 +141,6 @@ class JobLibExec:
         result = np.load(checkpoint_file, allow_pickle=True)
         return result
 
-        
     def _init_checkpoint(self):
         if self.checkpoint_dir is not None:
             if os.path.exists(self.checkpoint_dir):
@@ -163,6 +170,7 @@ class JobLibExec:
         
         metrics = pool(job(_, i) for i, _ in enumerate(self.seq))
         self.post.reduction(metrics)
+
 
 @dataclass
 class DaskExec(JobLibExec):
@@ -198,12 +206,12 @@ class DaskExec(JobLibExec):
                 result = np.hstack([m(t, y) for m in self.post.metrics])
                 _checkpoint(result, i)
             return result
+
         def reduction(vals):
             return self.post.reduction(vals)
 
         metrics = client.map(job, *list(zip(*enumerate(self.seq)))) 
 
-        
         if self.post.reduction is not None:
             reduced = client.submit(reduction, metrics)
             return reduced.result()
