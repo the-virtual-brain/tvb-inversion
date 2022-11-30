@@ -3,7 +3,7 @@ from tvb_inversion.sbi.prior import PytorchPrior
 from tvb.simulator.simulator import Simulator
 
 
-class sbiModel(StatisticalModel):
+class SBIModel(StatisticalModel):
 
     def __init__(
             self,

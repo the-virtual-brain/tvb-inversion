@@ -67,10 +67,11 @@ prior = PytorchPrior(names=['coupling.a'], dist=torch.distributions.Uniform(0.1,
 ```
 
 From the simulator and the prior we create statistical model:
-```python
-from tvb_inversion.sbi.sbi_model import sbiModel
 
-sbi_model = sbiModel(sim, prior)
+```python
+from tvb_inversion.sbi.stats_model import SBIModel
+
+sbi_model = SBIModel(sim, prior)
 ```
 
 And lastly, the summary statistics have to be defined - a function which converts the outputs of the simulator to a list of scalar data features. See the `demo.py` for an example.

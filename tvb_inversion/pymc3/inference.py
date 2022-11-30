@@ -7,7 +7,7 @@ import theano
 import theano.tensor as tt
 
 from tvb_inversion.base.inference import Estimator
-from tvb_inversion.pymc3.pymc3_model import Pymc3Model
+from tvb_inversion.pymc3.stats_model import Pymc3Model
 from tvb_inversion.base.parameters import Metric
 from tvb.simulator.backend.theano import TheanoBackend
 

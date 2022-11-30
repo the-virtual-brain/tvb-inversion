@@ -6,7 +6,7 @@ import itertools
 import pandas as pd
 
 from tvb_inversion.base.inference import Estimator, zscore, shrinkage
-from tvb_inversion.sbi.sbi_model import sbiModel
+from tvb_inversion.sbi.stats_model import SBIModel
 from tvb_inversion.logger.builder import get_logger
 from tvb_inversion.base.parameters import SimSeq, Metric
 
@@ -15,7 +15,7 @@ class EstimatorSBI(Estimator):
 
     def __init__(
             self,
-            stats_model: sbiModel,
+            stats_model: SBIModel,
             seq: Optional[SimSeq] = None,
             theta: Optional[torch.Tensor] = None,
             metrics: Optional[List[Metric]] = None,
