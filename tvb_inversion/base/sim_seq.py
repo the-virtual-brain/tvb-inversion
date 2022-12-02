@@ -1,7 +1,7 @@
-
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import List, Any, Optional
+from tvb.simulator.simulator import Simulator
 
 
 class ParamGetter:

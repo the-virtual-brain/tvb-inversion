@@ -15,6 +15,7 @@ class Estimator:
     def __init__(
             self,
             stats_model: StatisticalModel,
+            observation: Optional[np.ndarray] = None,
             metrics: Optional[List[Metric]] = None
     ):
 
@@ -22,6 +23,7 @@ class Estimator:
 
         self.stats_model = stats_model
         self.metrics = metrics
+        self.obs = observation
 
     @property
     def prior(self):
@@ -46,7 +48,7 @@ class Estimator:
 
 
 def zscore(true_mean, post_mean, post_std):
-    '''
+    """
     calculate z-score
 
     parameters
@@ -63,12 +65,12 @@ def zscore(true_mean, post_mean, post_std):
 
     z-score: float
 
-    '''
+    """
     return np.abs((post_mean - true_mean) / post_std)
 
 
 def shrinkage(prior_std, post_std):
-    '''
+    """
     shrinkage = 1 -  \frac{sigma_{post}/sigma_{prior}} ^2
 
     parameters
@@ -82,5 +84,5 @@ def shrinkage(prior_std, post_std):
     ----------
     shrinkage: float
 
-    '''
+    """
     return 1 - (post_std / prior_std)**2
