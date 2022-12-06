@@ -20,6 +20,12 @@ class Pymc3Prior(Prior):
     def sample_to_numpy(self, num_samples: int):
         self.sample(num_samples)
 
+    def append(self, names, dist):
+        self.names.append(names)
+        self.dist.append(dist)
+        self.dict = self.to_dict()
+        return self
+
     def to_dict(self):
         return {n: d for (n, d) in zip(self.names, self.dist)}
 
