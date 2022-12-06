@@ -104,12 +104,7 @@ class Pymc3ModelBuilder(StatisticalModel):
         # The observation cannot do the job either because it might not exist at this stage
         if "x_init" in self.params.names:
             return self.params.dict['x_init']
-        x_init_sim = tt.as_tensor_variable(self.sim.initial_conditions[:-1], name="x_init_sim")
-        if "x_init_offset" in self.params.names:
-            with self.model:
-                x_init = pm.Deterministic(name='x_init', var=x_init_sim + self.params.dict['x_init_offset'])
-            return x_init
-        return x_init_sim
+        return tt.as_tensor_variable(self.sim.initial_conditions[:, :, :, 0], name="x_init")
 
     def build_loop(self, x_init, **kwargs):
 
@@ -129,7 +124,7 @@ class Pymc3ModelBuilder(StatisticalModel):
         # self.ifun: Callable = self.build_ifun()
         # self.mfun: Callable = self.build_mfun()
 
-    def build_model(self):
+    def compose_model(self):
 
         self.build_funs()
 
@@ -143,7 +138,7 @@ class Pymc3ModelBuilder(StatisticalModel):
 
             if self.obs is not None:
                 x_obs = pm.Normal(name="x_obs", mu=x_hat, sd=self.params.dict.get("observation.noise", 1.0),
-                                  shape=self.obs.shape[:-1], observed=self.obs[:, :, :, 0])
+                                  shape=self.obs.shape[:-1], observed=self.obs)
 
     def build(self):
         return Pymc3Model(self.sim, self.params)
@@ -210,11 +205,12 @@ class DefaultDeterministicPymc3ModelBuilder(DeterministicPymc3ModelBuilder):
     def set_initial_conditions(self, def_std=0.1):
 
         with self.model:
-            x_init_offset_star = pm.Normal(name="x_init_offset_star", mu=0.0, sd=1.0,
-                                           shape=self.sim.initial_conditions.shape)
-            x_init_offset = pm.Deterministic(name="x_init_offset", var=def_std * x_init_offset_star)
+            x_init_star = pm.Normal(name="x_init_star", mu=0.0, sd=1.0,
+                                    shape=self.sim.initial_conditions.shape[:-1])
+            x_init = pm.Deterministic(name="x_init",
+                                      var=self.sim.initial_conditions[:, :, :, 0] + def_std * x_init_star)
 
-        return x_init_offset
+        return x_init
 
     def set_observation_model(self, def_std=0.1):
 
@@ -231,15 +227,15 @@ class DefaultDeterministicPymc3ModelBuilder(DeterministicPymc3ModelBuilder):
         return amplitude, offset, observation_noise
 
     def _set_default_priors(self, def_std=0.1):
-        x_init_offset = self.set_initial_conditions(def_std)
+        x_init = self.set_initial_conditions(def_std)
         amplitude, offset, observation_noise = self.set_observation_model(def_std)
-        return x_init_offset, amplitude, offset, observation_noise
+        return x_init, amplitude, offset, observation_noise
 
     def set_default_prior(self, def_std=0.1):
-        x_init_offset, amplitude, offset, observation_noise = self._set_default_priors(def_std)
-        names = ["x_init_offset",
-                 "observation.model.amplitude", "observation.model.offset", "observation.noise"],
-        dist = [x_init_offset,
+        x_init, amplitude, offset, observation_noise = self._set_default_priors(def_std)
+        names = ["x_init",
+                 "observation.model.amplitude", "observation.model.offset", "observation.noise"]
+        dist = [x_init,
                 amplitude, offset, observation_noise]
         self.params = self._build_or_append_prior(names, dist)
         return self.params
@@ -252,7 +248,7 @@ class DefaultStochasticPymc3ModelBuilder(StochasticPymc3ModelBuilder, DefaultDet
         with self.model:
             nsig_star = pm.HalfNormal(name="nsig_star", sigma=1.0)
             nsig = pm.Deterministic(name="nsig", var=self.sim.integrator.noise.nsig[0] + def_std * nsig_star)
-            dWt_star = pm.Normal(name="dWt_star", mu=0.0, sd=1.0, shape=self.obs.shape[:-1])
+            dWt_star = pm.Normal(name="dWt_star", mu=0.0, sd=1.0, shape=self.obs.shape)
 
         return nsig, dWt_star
 
@@ -262,10 +258,10 @@ class DefaultStochasticPymc3ModelBuilder(StochasticPymc3ModelBuilder, DefaultDet
         return x_init_offset, nsig, dWt_star, amplitude, offset, observation_noise
 
     def set_default_prior(self, def_std=0.1):
-        x_init_offset, nsig, dWt_star, amplitude, offset, observation_noise = self._set_default_priors(def_std)
-        names = ["x_init_offset", "integrator.noise.nsig", "dWt_star",
-                 "observation.model.amplitude", "observation.model.offset", "observation.noise"],
-        dist = [x_init_offset, nsig, dWt_star,
+        x_init, nsig, dWt_star, amplitude, offset, observation_noise = self._set_default_priors(def_std)
+        names = ["x_init", "integrator.noise.nsig", "dWt_star",
+                 "observation.model.amplitude", "observation.model.offset", "observation.noise"]
+        dist = [x_init, nsig, dWt_star,
                 amplitude, offset, observation_noise]
         self.params = self._build_or_append_prior(names, dist)
         return self.params
