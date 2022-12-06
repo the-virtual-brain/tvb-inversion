@@ -9,7 +9,6 @@ import matplotlib.pyplot as plt
 
 from tvb_inversion.base.inference import Estimator
 from tvb_inversion.pymc3.stats_model import Pymc3Model
-from tvb_inversion.base.metrics import Metric
 from tvb.simulator.backend.theano import TheanoBackend
 
 
