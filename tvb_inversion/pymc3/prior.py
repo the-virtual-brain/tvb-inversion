@@ -30,7 +30,7 @@ class Pymc3Prior(Prior):
         return {n: d for (n, d) in zip(self.names, self.dist)}
 
     def get_params_from_path(self, param_type):
-        return {pname.split(".")[-1]: pval for pname, pval in self.params.dict.items() if param_type in pname}
+        return {pname.split(".")[-1]: pval for pname, pval in self.dict.items() if param_type in pname}
 
     def get_model_params(self):
         return self.get_params_from_path("model")
