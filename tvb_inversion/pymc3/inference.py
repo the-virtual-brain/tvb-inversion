@@ -6,11 +6,13 @@ import theano
 import theano.tensor as tt
 import arviz as az
 import matplotlib.pyplot as plt
+from tvb.simulator import noise
 
 from tvb_inversion.base.inference import Estimator
 from tvb_inversion.pymc3.stats_model import Pymc3Model
 from tvb_inversion.base.metrics import Metric
 from tvb.simulator.backend.theano import TheanoBackend
+import tvb.simulator.noise
 
 
 class EstimatorPYMC(Estimator):
@@ -90,10 +92,17 @@ class EstimatorPYMC(Estimator):
             x_init = tt.set_subtensor(x_init[-1], self.obs[0, :, :, 0])
             x_init = tt.unbroadcast(x_init, 2)
 
+            if isinstance(self.sim.integrator.noise, noise.Additive):
+                gfun = pm.Deterministic(name="gfun", var=tt.sqrt(2.0 * self.iparams["nsig"]))
+                noise_star = pm.Normal(name="noise_star", mu=0.0, sd=1.0, shape=self.obs.shape[:-1])
+                dynamic_noise = pm.Deterministic(name="dynamic_noise", var=gfun * noise_star)
+            else:
+                raise NotImplementedError
+
             taps = list(-1 * np.arange(self.sim.connectivity.idelays.max() + 1) - 1)[::-1]
             x_sim, updates = theano.scan(
                 fn=self.scheme,
-                sequences=[self.prior.to_dict()["dynamic_noise"]],
+                sequences=[dynamic_noise],
                 outputs_info=[dict(initial=x_init, taps=taps)],
                 n_steps=self.obs.shape[0]
             )
@@ -105,8 +114,8 @@ class EstimatorPYMC(Estimator):
             offset = pm.Deterministic(name="offset", var=0.0 + offset_star)
 
             x_hat = pm.Deterministic(name="x_hat", var=amplitude * x_sim + offset)
-
-            x_obs = pm.Normal(name="x_obs", mu=x_hat, sd=self.prior.to_dict()["global_noise"], shape=self.obs.shape[:-1], observed=self.obs[:, :, :, 0])
+            observation_noise = pm.HalfNormal(name="observation_noise", sigma=0.05)
+            x_obs = pm.Normal(name="x_obs", mu=x_hat, sd=observation_noise, shape=self.obs.shape[:-1], observed=self.obs[:, :, :, 0])
 
             trace = pm.sample(draws=draws, tune=tune, cores=cores, target_accept=target_accept)
             posterior_predictive = pm.sample_posterior_predictive(trace=trace)
