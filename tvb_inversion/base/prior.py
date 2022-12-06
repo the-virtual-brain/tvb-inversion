@@ -14,6 +14,3 @@ class Prior:
 
     def sample_to_numpy(self, num_samples: int):
         pass
-
-
-

@@ -10,7 +10,6 @@ class Pymc3Model(StatisticalModel):
             self,
             sim: Simulator,
             params: Pymc3Prior,
-            model: pm.Model
     ):
         super().__init__(sim, params)
-        self.model = model
+        self.model = params.model

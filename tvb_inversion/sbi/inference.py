@@ -14,6 +14,8 @@ from tvb_inversion.base.sim_seq import SimSeq
 
 class EstimatorSBI(Estimator):
 
+    estimator: Callable
+
     def __init__(
             self,
             stats_model: SBIModel,
@@ -24,7 +26,7 @@ class EstimatorSBI(Estimator):
             method='SNPE'
     ):
 
-        super().__init__(stats_model, metrics)
+        super().__init__(stats_model)
         self.logger = get_logger(self.__class__.__module__)
 
         self.seq = seq

@@ -10,20 +10,12 @@ from tvb_inversion.base.metrics import Metric
 
 class Estimator:
 
-    estimator: Callable
-
     def __init__(
             self,
             stats_model: StatisticalModel,
-            observation: Optional[np.ndarray] = None,
-            metrics: Optional[List[Metric]] = None
     ):
-
         self.logger = get_logger(self.__class__.__module__)
-
         self.stats_model = stats_model
-        self.metrics = metrics
-        self.obs = observation
 
     @property
     def prior(self):
@@ -32,19 +24,6 @@ class Estimator:
     @property
     def sim(self):
         return self.stats_model.sim
-
-    def load_summary_stats(self, filename: str):
-        assert self.metrics is not None, 'Metrics not provided.'
-        results = np.load(filename, allow_pickle=True)
-        idx = list(itertools.chain.from_iterable([m.summary_stats_idx for m in self.metrics ]))
-        columns = list(itertools.chain.from_iterable([m.summary_stats_labels for m in self.metrics ]))
-
-        summary_stats = pd.DataFrame.from_records(
-            results[:,idx].astype(np.float64), 
-            columns=columns
-        )
-
-        return summary_stats
 
 
 def zscore(true_mean, post_mean, post_std):
