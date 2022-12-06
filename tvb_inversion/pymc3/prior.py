@@ -21,13 +21,13 @@ class Pymc3Prior(Prior):
         self.sample(num_samples)
 
     def append(self, names, dist):
-        self.names.append(names)
-        self.dist.append(dist)
+        self.names += list(names)
+        self.dist += list(dist)
         self.dict = self.to_dict()
         return self
 
     def to_dict(self):
-        return {n: d for (n, d) in zip(self.names, self.dist)}
+        return dict(zip(self.names, self.dist))
 
     def get_params_from_path(self, param_type):
         return {pname.split(".")[-1]: pval for pname, pval in self.dict.items() if param_type in pname}
