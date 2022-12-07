@@ -128,7 +128,8 @@ posterior_samples = posterior.sample((num_samples,), obs_stats)
 To assess the resulting distribution, we can compute the posterior shrinkage, that is how much the data is telling us about the parameters of interest (this value would be ideally close to 1 indicating well identified posterior):
 
 ```python
-from tvb_inversion.sbi.inference import shrinkage, zscore
+
+from tvb_inversion.base.diagnostics import zscore, shrinkage
 
 post_std = torch.std(posterior_samples)
 post_mean = torch.mean(posterior_samples)
