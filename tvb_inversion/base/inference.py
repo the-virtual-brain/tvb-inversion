@@ -13,7 +13,8 @@ class Estimator:
 
     def __init__(
             self,
-            stats_model: StatisticalModel
+            stats_model: StatisticalModel,
+            ground_truth: Optional[np.ndarray] = None
     ):
         self.logger = get_logger(self.__class__.__module__)
         self.stats_model = stats_model
@@ -31,6 +32,6 @@ class Estimator:
         self.zscore = zscore(true_mean, posterior_mean, posterior_std)
         return self.zscore
 
-    def compute_shrinkage(self, prior_std, post_std):
-        self.shrinkage = shrinkage(prior_std, post_std)
+    def compute_shrinkage(self, prior_std, posterior_std):
+        self.shrinkage = shrinkage(prior_std, posterior_std)
         return self.shrinkage

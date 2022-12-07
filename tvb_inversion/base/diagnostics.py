@@ -39,4 +39,4 @@ def shrinkage(prior_std, post_std):
     shrinkage: float
 
     """
-    return 1 - (post_std / prior_std)**2
+    return 1 - (post_std / prior_std) ** 2

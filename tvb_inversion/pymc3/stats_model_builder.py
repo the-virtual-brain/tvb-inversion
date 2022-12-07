@@ -37,6 +37,11 @@ class Pymc3ModelBuilder(StatisticalModel):
             assert isinstance(self.obs, np.ndarray), "Either observation or n_steps has to be given as input arguments!"
             self.n_steps = self.obs.shape[0]
 
+        self.dfun: Optional[Callable] = None
+        self.cfun: Optional[Callable] = None
+        self.ifun: Optional[Callable] = None
+        self.mfun: Optional[Callable] = None
+
     def configure(self):
         assert isinstance(self.params, Pymc3Prior)
         assert isinstance(self.model, pm.Model)
@@ -45,7 +50,7 @@ class Pymc3ModelBuilder(StatisticalModel):
         if self.params:
             self.params.append(names, dist)
         else:
-            self.params = Pymc3Prior(names=names, dist=dist)
+            self.params = Pymc3Prior(names=names, dist=dist, model=self.model)
         return self.params
 
     def build_dfun(self):
@@ -111,16 +116,16 @@ class Pymc3ModelBuilder(StatisticalModel):
         with self.model:
             taps = list(-1 * np.arange(self.sim.connectivity.idelays.max() + 1) - 1)[::-1]
             x_sim, updates = theano.scan(
-                    fn=self.scheme,
-                    sequences=kwargs.get("sequence", None),
-                    outputs_info=[dict(initial=x_init, taps=taps)],
-                    n_steps=self.n_steps
-                )
+                fn=self.scheme,
+                sequences=kwargs.get("sequence", None),
+                outputs_info=[dict(initial=x_init, taps=taps)],
+                n_steps=self.n_steps
+            )
         return x_sim, updates
 
     def build_funs(self):
-        self.dfun: Callable = self.build_dfun()
-        self.cfun: Callable = self.build_cfun()
+        self.dfun = self.build_dfun()
+        self.cfun = self.build_cfun()
         # self.ifun: Callable = self.build_ifun()
         # self.mfun: Callable = self.build_mfun()
 
@@ -138,7 +143,7 @@ class Pymc3ModelBuilder(StatisticalModel):
 
             if self.obs is not None:
                 x_obs = pm.Normal(name="x_obs", mu=x_hat, sd=self.params.dict.get("observation.noise", 1.0),
-                                  shape=self.obs.shape[:-1], observed=self.obs)
+                                  shape=self.obs.shape, observed=self.obs)
 
     def build(self):
         return Pymc3Model(self.sim, self.params)
@@ -170,9 +175,15 @@ class StochasticPymc3ModelBuilder(DeterministicPymc3ModelBuilder):
         with self.model:
             # nsig might be a parameter or to be taken from the simulator
             # TODO: broadcast for different shapes of nsig!!!
-            nsig = self.params.dict.get('integrator.noise.nsig', self.sim.integrator.noise.nsig[0].item())
-            dWt = pm.Deterministic(name='dWt',
-                                   var=tt.sqrt(2.0 * nsig * self.sim.integrator.dt) * self.params.dict['dWt_star'])
+            nsig = self.params.dict.get("integrator.noise.nsig", self.sim.integrator.noise.nsig[0].item())
+            if "dWt_star" in self.params.dict:
+                dWt = pm.Deterministic(name="dWt",
+                                       var=tt.sqrt(2.0 * nsig * self.sim.integrator.dt) * self.params.dict["dWt_star"])
+            else:
+                dWt_star = pm.Normal(name="dWt_star", mu=0.0, sd=1.0, shape=self.obs.shape)
+                dWt = pm.Deterministic(name="dWt",
+                                       var=tt.sqrt(2.0 * nsig * self.sim.integrator.dt) * dWt_star)
+
         return dWt
 
     # def build_funs(self):
@@ -198,12 +209,10 @@ class DefaultDeterministicPymc3ModelBuilder(DeterministicPymc3ModelBuilder):
             observation: Optional[np.ndarray] = None,
             n_steps: Optional[int] = None
     ):
-
         super().__init__(sim, params=params, model=model,
                          observation=observation, observation_fun=linear, n_steps=n_steps)
 
     def set_initial_conditions(self, def_std=0.1):
-
         with self.model:
             x_init_star = pm.Normal(name="x_init_star", mu=0.0, sd=1.0,
                                     shape=self.sim.initial_conditions.shape[:-1])
@@ -213,13 +222,12 @@ class DefaultDeterministicPymc3ModelBuilder(DeterministicPymc3ModelBuilder):
         return x_init
 
     def set_observation_model(self, def_std=0.1):
-
         with self.model:
             amplitude_star = pm.Normal(name="amplitude_star", mu=0.0, sd=1.0)
-            amplitude = pm.Deterministic(name="observation_model_amplitude", var=1.0 + def_std * amplitude_star)
+            amplitude = pm.Deterministic(name="amplitude", var=1.0 + def_std * amplitude_star)
 
             offset_star = pm.Normal(name="offset_star", mu=0.0, sd=1.0)
-            offset = pm.Deterministic(name="observation_model_offset", var=def_std * offset_star)
+            offset = pm.Deterministic(name="offset", var=def_std * offset_star)
 
             observation_noise_star = pm.HalfNormal(name="observation_noise_star", sigma=1.0)
             observation_noise = pm.Deterministic(name="observation_noise", var=def_std * observation_noise_star)
@@ -244,7 +252,6 @@ class DefaultDeterministicPymc3ModelBuilder(DeterministicPymc3ModelBuilder):
 class DefaultStochasticPymc3ModelBuilder(StochasticPymc3ModelBuilder, DefaultDeterministicPymc3ModelBuilder):
 
     def set_noise(self, def_std=0.1):
-
         with self.model:
             nsig_star = pm.HalfNormal(name="nsig_star", sigma=1.0)
             nsig = pm.Deterministic(name="nsig", var=self.sim.integrator.noise.nsig[0] * (1.0 + def_std * nsig_star))

@@ -21,8 +21,8 @@ class Pymc3Prior(Prior):
         self.sample(num_samples)
 
     def append(self, names, dist):
-        self.names += list(names)
-        self.dist += list(dist)
+        self.names.extend(list(names))
+        self.dist.extend(list(dist))
         self.dict = self.to_dict()
         return self
 

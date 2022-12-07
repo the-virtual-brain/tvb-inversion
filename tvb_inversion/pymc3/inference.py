@@ -20,6 +20,8 @@ class EstimatorPYMC(Estimator):
 
         super().__init__(stats_model)
 
+        self.trace = None
+        self.posterior_predictive = None
         self.inference_data = None
         self.inference_summary = None
 
@@ -50,14 +52,18 @@ class EstimatorPYMC(Estimator):
     # def get_prior_std(self):
     #     pass
 
-    def get_posterior_mean(self):
-        pass
+    def get_posterior_mean(self, params: List[str]):
+        posterior = np.asarray([self.inference_data.posterior[param].values.reshape((self.inference_data.posterior[param].values.size,)) for param in params])
+        return posterior.mean()
 
-    def get_posterior_std(self):
-        pass
+    def get_posterior_std(self, params: List[str]):
+        posterior = np.asarray([self.inference_data.posterior[param].values.reshape((self.inference_data.posterior[param].values.size,)) for param in params])
+        return posterior.std()
 
     def information_criteria(self):
-        pass
+        waic = az.waic(self.inference_data)
+        loo = az.loo(self.inference_data)
+        return dict(WAIC=waic.waic, LOO=loo.loo)
 
     def run_inference(self, **kwargs):
         self.trace = self.sample(**kwargs)
