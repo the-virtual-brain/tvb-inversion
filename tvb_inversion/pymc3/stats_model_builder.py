@@ -208,7 +208,7 @@ class DefaultDeterministicPymc3ModelBuilder(DeterministicPymc3ModelBuilder):
             x_init_star = pm.Normal(name="x_init_star", mu=0.0, sd=1.0,
                                     shape=self.sim.initial_conditions.shape[:-1])
             x_init = pm.Deterministic(name="x_init",
-                                      var=self.sim.initial_conditions[:, :, :, 0] + def_std * x_init_star)
+                                      var=self.sim.initial_conditions[:, :, :, 0] * (1.0 + def_std * x_init_star))
 
         return x_init
 
@@ -247,7 +247,7 @@ class DefaultStochasticPymc3ModelBuilder(StochasticPymc3ModelBuilder, DefaultDet
 
         with self.model:
             nsig_star = pm.HalfNormal(name="nsig_star", sigma=1.0)
-            nsig = pm.Deterministic(name="nsig", var=self.sim.integrator.noise.nsig[0] + def_std * nsig_star)
+            nsig = pm.Deterministic(name="nsig", var=self.sim.integrator.noise.nsig[0] * (1.0 + def_std * nsig_star))
             dWt_star = pm.Normal(name="dWt_star", mu=0.0, sd=1.0, shape=self.obs.shape)
 
         return nsig, dWt_star
