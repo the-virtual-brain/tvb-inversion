@@ -27,10 +27,40 @@ class EstimatorPYMC(Estimator):
     def model(self):
         return self.stats_model.model
 
-    def run_inference(self, draws: int, tune: int, cores: int, target_accept: float):
+    def sample(self, **kwargs):
         with self.model:
-            trace = pm.sample(draws=draws, tune=tune, cores=cores, target_accept=target_accept)
-            posterior_predictive = pm.sample_posterior_predictive(trace=trace)
-            # prior_predictive = pm.sample_prior_predictive(samples=1000)
-            self.inference_data = az.from_pymc3(trace=trace, posterior_predictive=posterior_predictive)
-            self.inference_summary = az.summary(self.inference_data)
+            trace = pm.sample(**kwargs)
+        self.trace = trace
+        return self.trace
+
+    def sample_posterior_predictive(self):
+        with self.model:
+            posterior_predictive = pm.sample_posterior_predictive(trace=self.trace)
+        self.posterior_predictive = posterior_predictive
+        return self.posterior_predictive
+
+    def get_inference_data(self):
+        self.inference_data = az.from_pymc3(trace=self.trace, posterior_predictive=self.posterior_predictive)
+        return self.inference_data
+
+    def get_inference_summary(self):
+        self.inference_summary = az.summary(self.inference_data)
+        return self.inference_summary
+
+    # def get_prior_std(self):
+    #     pass
+
+    def get_posterior_mean(self):
+        pass
+
+    def get_posterior_std(self):
+        pass
+
+    def information_criteria(self):
+        pass
+
+    def run_inference(self, **kwargs):
+        self.trace = self.sample(**kwargs)
+        self.inference_data = self.get_inference_data()
+        self.inference_summary = self.get_inference_summary()
+        return self.inference_data, self.inference_summary
