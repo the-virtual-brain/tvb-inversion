@@ -42,7 +42,9 @@ class EstimatorPYMC(Estimator):
         return self.posterior_predictive
 
     def get_inference_data(self):
-        self.inference_data = az.from_pymc3(trace=self.trace, posterior_predictive=self.posterior_predictive)
+        with self.model:
+            inference_data = az.from_pymc3(trace=self.trace, posterior_predictive=self.posterior_predictive)
+        self.inference_data = inference_data
         return self.inference_data
 
     def get_inference_summary(self):
@@ -67,6 +69,7 @@ class EstimatorPYMC(Estimator):
 
     def run_inference(self, **kwargs):
         self.trace = self.sample(**kwargs)
+        self.posterior_predictive = self.sample_posterior_predictive()
         self.inference_data = self.get_inference_data()
         self.inference_summary = self.get_inference_summary()
         return self.inference_data, self.inference_summary

@@ -7,7 +7,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-core=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=4
+#SBATCH --cpus-per-task=72
 #SBATCH --partition=normal
 #SBATCH --constraint=mc
 #SBATCH --hint=nomultithread
@@ -16,10 +16,10 @@
 source ~/.bashrc
 source activate tvb-env
 
-export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+export OMP_NUM_THREADS=16
 
 theano-cache purge
 stamp=$(date +%s)
-export THEANO_FLAGS="base_compiledir=/var/tmp/$stamp/.theano/,compile__timeout=24,compile__wait=20,device=cpu"
+export THEANO_FLAGS="base_compiledir=/var/tmp/$stamp/.theano/,compile__timeout=24,compile__wait=10,device=cpu"
 
-python3 /users/erichter/tvb-inversion/tvb-inversion/examples/connectivity_76/pymc3/pymc_inference.py
+python3 /users/erichter/tvb-inversion/tvb-inversion/examples/connectivity_76/pymc3/pymc3_inference.py
