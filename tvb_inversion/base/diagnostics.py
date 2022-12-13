@@ -12,7 +12,7 @@ def zscore(true_mean, post_mean, post_std):
     post_mean: float
         mean [max] value of the posterior
     post_std: float
-        standard deviation of postorior
+        standard deviation of posterior
 
     return
     --------
@@ -32,7 +32,7 @@ def shrinkage(prior_std, post_std):
     prior_std: float
         standard deviation of prior
     post_std: float
-        standard deviation of postorior
+        standard deviation of posterior
 
     return
     ----------

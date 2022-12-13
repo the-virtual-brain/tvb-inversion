@@ -142,7 +142,7 @@ class Pymc3ModelBuilder(StatisticalModel):
                 x_hat = x_sim
 
             if self.obs is not None:
-                x_obs = pm.Normal(name="x_obs", mu=x_hat, sd=self.params.dict.get("observation.noise", 1.0),
+                x_obs = pm.Normal(name="x_obs", mu=x_hat[:, self.sim.model.cvar, :], sd=self.params.dict.get("observation.noise", 1.0),
                                   shape=self.obs.shape, observed=self.obs)
 
     def build(self):
@@ -180,7 +180,7 @@ class StochasticPymc3ModelBuilder(DeterministicPymc3ModelBuilder):
                 dWt = pm.Deterministic(name="dWt",
                                        var=tt.sqrt(2.0 * nsig * self.sim.integrator.dt) * self.params.dict["dWt_star"])
             else:
-                dWt_star = pm.Normal(name="dWt_star", mu=0.0, sd=1.0, shape=self.obs.shape)
+                dWt_star = pm.Normal(name="dWt_star", mu=0.0, sd=1.0, shape=(self.obs.shape[0], *self.sim.initial_conditions.shape[1:-1]))
                 dWt = pm.Deterministic(name="dWt",
                                        var=tt.sqrt(2.0 * nsig * self.sim.integrator.dt) * dWt_star)
 
@@ -253,9 +253,10 @@ class DefaultStochasticPymc3ModelBuilder(StochasticPymc3ModelBuilder, DefaultDet
 
     def set_noise(self, def_std=0.1):
         with self.model:
-            nsig_star = pm.HalfNormal(name="nsig_star", sigma=1.0)
+            BoundedNormal = pm.Bound(pm.Normal, lower=0.0)
+            nsig_star = BoundedNormal(name="nsig_star", mu=0.0, sd=1.0)
             nsig = pm.Deterministic(name="nsig", var=self.sim.integrator.noise.nsig[0] * (1.0 + def_std * nsig_star))
-            dWt_star = pm.Normal(name="dWt_star", mu=0.0, sd=1.0, shape=self.obs.shape)
+            dWt_star = pm.Normal(name="dWt_star", mu=0.0, sd=1.0, shape=(self.obs.shape[0], *self.sim.initial_conditions.shape[1:-1]))
 
         return nsig, dWt_star
 

@@ -289,7 +289,7 @@ if __name__ == "__main__":
 
     sim = create_simulator(simulation_length=250)
     (t, X), = sim.run()
-    np.save(f"pymc3_data/simulation_{run_id}.npy")
+    np.save(f"pymc3_data/simulation_{run_id}.npy", X)
 
     # _ = default_model_builders(sim=sim, observation=X, save_file=f"pymc3_data/{run_id}.nc")
     _ = uninformative_model_builders(sim=sim, observation=X, save_file=f"pymc3_data/{run_id}.nc")

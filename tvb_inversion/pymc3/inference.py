@@ -56,11 +56,11 @@ class EstimatorPYMC(Estimator):
 
     def get_posterior_mean(self, params: List[str]):
         posterior = np.asarray([self.inference_data.posterior[param].values.reshape((self.inference_data.posterior[param].values.size,)) for param in params])
-        return posterior.mean()
+        return posterior.mean(axis=1)
 
     def get_posterior_std(self, params: List[str]):
         posterior = np.asarray([self.inference_data.posterior[param].values.reshape((self.inference_data.posterior[param].values.size,)) for param in params])
-        return posterior.std()
+        return posterior.std(axis=1)
 
     def information_criteria(self):
         waic = az.waic(self.inference_data)

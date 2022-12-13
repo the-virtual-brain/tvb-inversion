@@ -293,5 +293,5 @@ if __name__ == "__main__":
     (t, X), = sim.run()
 
     data, summary = default_model_builders(sim=sim, observation=X)
-    # inference_data, inference_summary = uninformative_model_builders(sim=sim, observation=X)
-    # inference_data, inference_summary = custom_model_builders(sim=sim, observation=X)
+    # data, summary = uninformative_model_builders(sim=sim, observation=X)
+    # data, summary = custom_model_builders(sim=sim, observation=X)
