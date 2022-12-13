@@ -1,5 +1,5 @@
 #!/bin/bash -l
-#SBATCH --job-name="2node-limitcycle-pymc"
+#SBATCH --job-name="76node-pymc3"
 #SBATCH --account="ich012"
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=emilius.richter@fu-berlin.de
@@ -10,7 +10,7 @@
 #SBATCH --cpus-per-task=72
 #SBATCH --partition=normal
 #SBATCH --constraint=mc
-#SBATCH --hint=nomultithread
+#SBATCH --hint=multithread
 #SBATCH --output=pymc_data/slurm.out
 
 source ~/.bashrc
@@ -18,7 +18,6 @@ source activate tvb-env
 
 export OMP_NUM_THREADS=16
 
-theano-cache purge
 stamp=$(date +%s)
 export THEANO_FLAGS="base_compiledir=/var/tmp/$stamp/.theano/,compile__timeout=24,compile__wait=10,device=cpu"
 
