@@ -17,7 +17,8 @@ class BaseTestPymc3Inference(unittest.TestCase):
     def run_test(self):
         sim = create_2node_simulator(simulation_length=self.simulation_length)
         (t, X), = sim.run()
-        _ = self.model_builder(sim=sim, observation=X, **self.sample_kwargs)
+        self.assertRaises(ValueError, self.model_builder, sim=sim, observation=X, **self.sample_kwargs)
+        # _ = self.model_builder(sim=sim, observation=X, **self.sample_kwargs)
 
 
 class TestDefaultModelBuilders(BaseTestPymc3Inference):
