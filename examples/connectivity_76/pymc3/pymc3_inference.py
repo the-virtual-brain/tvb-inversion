@@ -11,6 +11,7 @@ from tvb_inversion.pymc3.examples import (
 
 PATH = os.path.dirname(__file__)
 
+
 def create_simulator(simulation_length: float):
     conn = connectivity.Connectivity.from_file()
 

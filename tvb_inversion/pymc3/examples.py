@@ -116,7 +116,7 @@ def uninformative_model_builders(
             name="nsig", var=sim.integrator.noise.nsig[0].item() * (1.0 + def_std * nsig_star))
 
         dWt_star = pm.Normal(
-            name="dWt_star", mu=0.0, sd=1.0, shape=observation.shape[:-1])
+            name="dWt_star", mu=0.0, sd=1.0, shape=(observation.shape[0], sim.model.nvar, sim.connectivity.number_of_regions))
 
         amplitude_star = pm.Normal(
             name="amplitude_star", mu=0.0, sd=1.0)
@@ -187,7 +187,7 @@ def custom_model_builders(
             name="nsig", var=sim.integrator.noise.nsig[0].item() * (1.0 + def_std * nsig_star))
 
         dWt_star = pm.Normal(
-            name="dWt_star", mu=0.0, sd=1.0, shape=observation.shape[:-1])
+            name="dWt_star", mu=0.0, sd=1.0, shape=(observation.shape[0], sim.model.nvar, sim.connectivity.number_of_regions))
         dWt = pm.Deterministic(
             name="dWt", var=tt.sqrt(2.0 * nsig * sim.integrator.dt) * dWt_star)
 
@@ -269,7 +269,7 @@ def custom_model_builders(
             name="x_hat", var=linear(x_sim, **prior.get_observation_model_params()))
 
         x_obs = pm.Normal(
-            name="x_obs", mu=x_hat, sd=prior.dict.get("observation.noise", 1.0), shape=observation.shape[:-1], observed=observation[:, :, :, 0])
+            name="x_obs", mu=x_hat[:, sim.model.cvar, :], sd=prior.dict.get("observation.noise", 1.0), shape=observation.shape[:-1], observed=observation[:, :, :, 0])
 
     pymc_estimator = EstimatorPYMC(stats_model=pymc_model)
 
