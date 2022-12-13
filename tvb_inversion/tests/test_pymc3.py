@@ -12,33 +12,29 @@ from tvb_inversion.pymc3.examples import (
 class BaseTestPymc3Inference(unittest.TestCase):
     simulation_length = 10
     sample_kwargs = dict(draws=25, tune=25, cores=1)
-    model_builder: Callable = None
 
-    def run_test(self):
+    def run_test(self, model_builder: Callable):
         sim = create_2node_simulator(simulation_length=self.simulation_length)
         (t, X), = sim.run()
-        self.assertRaises(ValueError, self.model_builder, sim=sim, observation=X, **self.sample_kwargs)
-        # _ = self.model_builder(sim=sim, observation=X, **self.sample_kwargs)
+        # self.assertRaises(ValueError, self.model_builder, sim=sim, observation=X, **self.sample_kwargs)
+        _ = model_builder(sim=sim, observation=X, **self.sample_kwargs)
 
 
 class TestDefaultModelBuilders(BaseTestPymc3Inference):
-    model_builder = default_model_builders
 
     def test(self):
-        self.run_test()
+        self.run_test(default_model_builders)
 
 
 class TestUninformativeModelBuilders(BaseTestPymc3Inference):
-    model_builder = uninformative_model_builders
 
     def test(self):
-        self.run_test()
+        self.run_test(uninformative_model_builders)
 
 
 class TestCustomModelBuilders(BaseTestPymc3Inference):
-    model_builder = custom_model_builders
 
     def test(self):
-        self.run_test()
+        self.run_test(custom_model_builders)
 
 
