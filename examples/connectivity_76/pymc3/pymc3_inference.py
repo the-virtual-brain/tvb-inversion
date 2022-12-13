@@ -40,9 +40,9 @@ if __name__ == "__main__":
 
     sim = create_simulator(simulation_length=250)
     (t, X), = sim.run()
-    np.save(f"pymc3_data/simulation_{run_id}.npy", X)
+    np.save(f"./pymc3_data/simulation_{run_id}.npy", X)
 
-    _ = default_model_builders(sim=sim, observation=X, save_file=f"pymc3_data/{run_id}.nc",
+    _ = default_model_builders(sim=sim, observation=X, save_file=f"./pymc3_data/{run_id}.nc",
                                draws=250, tune=250, cores=2, target_accept=0.9, max_treedepth=15)
     # _ = uninformative_model_builders(sim=sim, observation=X, save_file=f"pymc3_data/{run_id}.nc",
     #                                  draws=250, tune=250, cores=2, target_accept=0.9, max_treedepth=15)
