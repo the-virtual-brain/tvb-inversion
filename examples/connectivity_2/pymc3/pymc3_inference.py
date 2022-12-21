@@ -19,7 +19,12 @@ PATH = os.path.dirname(__file__)
 
 
 def create_simulator(simulation_length: float):
-    conn = connectivity.Connectivity.from_file()
+    conn = connectivity.Connectivity()
+    conn.weights = np.array([[0., 2.], [2., 0.]])
+    conn.region_labels = np.array(["R1", "R2"])
+    conn.centres = np.array([[0.1, 0.1, 0.1], [0.2, 0.1, 0.1]])
+    conn.tract_lengths = np.array([[0., 2.5], [2.5, 0.]])
+    conn.configure()
 
     sim = simulator.Simulator(
         model=models.oscillator.Generic2dOscillator(a=np.array([1.5])),
@@ -122,4 +127,4 @@ if __name__ == "__main__":
     np.save(f"{PATH}/pymc3_data/simulation_{run_id}.npy", X)
 
     _ = build_model(sim=sim, observation=X, save_file=f"{PATH}/pymc3_data/{run_id}.nc",
-                      draws=250, tune=250, cores=2, target_accept=0.9, max_treedepth=15)
+                    draws=250, tune=250, cores=2, target_accept=0.9, max_treedepth=15)

@@ -19,7 +19,12 @@ PATH = os.path.dirname(__file__)
 
 
 def create_simulator(simulation_length: float):
-    conn = connectivity.Connectivity.from_file()
+    conn = connectivity.Connectivity()
+    conn.weights = np.array([[1.]])
+    conn.region_labels = np.array(["R1"])
+    conn.centres = np.array([[0.1, 0.1, 0.1]])
+    conn.tract_lengths = np.array([[0.]])
+    conn.configure()
 
     sim = simulator.Simulator(
         model=models.oscillator.Generic2dOscillator(a=np.array([1.5])),
@@ -58,10 +63,10 @@ def build_model(
         model_a = pm.Deterministic(
             name="model_a", var=sim.model.a * (1.0 + def_std * model_a_star))
 
-        coupling_a_star = pm.Normal(
-            name="coupling_a_star", mu=0.0, sd=1.0)
-        coupling_a = pm.Deterministic(
-            name="coupling_a", var=sim.coupling.a[0].item() * (1.0 + def_std * coupling_a_star))
+        # coupling_a_star = pm.Normal(
+        #     name="coupling_a_star", mu=0.0, sd=1.0)
+        # coupling_a = pm.Deterministic(
+        #     name="coupling_a", var=sim.coupling.a[0].item() * (1.0 + def_std * coupling_a_star))
 
         x_init_star = pm.Normal(
             name="x_init_star", mu=0.0, sd=1.0, shape=sim.initial_conditions.shape[:-1])
@@ -94,9 +99,9 @@ def build_model(
 
     prior = Pymc3Prior(
         model=model,
-        names=["model.a", "coupling.a", "x_init", "integrator.noise.nsig", "dWt_star",
+        names=["model.a", "x_init", "integrator.noise.nsig", "dWt_star",
                "observation.model.amplitude", "observation.model.offset", "observation.noise"],
-        dist=[model_a, coupling_a, x_init, nsig, dWt_star,
+        dist=[model_a, x_init, nsig, dWt_star,
               amplitude, offset, observation_noise]
     )
 
@@ -122,4 +127,4 @@ if __name__ == "__main__":
     np.save(f"{PATH}/pymc3_data/simulation_{run_id}.npy", X)
 
     _ = build_model(sim=sim, observation=X, save_file=f"{PATH}/pymc3_data/{run_id}.nc",
-                      draws=250, tune=250, cores=2, target_accept=0.9, max_treedepth=15)
+                    draws=250, tune=250, cores=2, target_accept=0.9, max_treedepth=15)
