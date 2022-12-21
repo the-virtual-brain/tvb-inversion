@@ -3,7 +3,7 @@
 #SBATCH --account="ich012"
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=emilius.richter@fu-berlin.de
-#SBATCH --time=01:00:00
+#SBATCH --time=03:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-core=1
 #SBATCH --ntasks-per-node=1
