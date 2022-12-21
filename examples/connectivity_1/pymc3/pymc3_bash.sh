@@ -11,7 +11,7 @@
 #SBATCH --partition=normal
 #SBATCH --constraint=mc
 #SBATCH --hint=multithread
-#SBATCH --output=pymc_data/slurm.out
+#SBATCH --output=pymc3_data/slurm.out
 
 source ~/.bashrc
 source activate tvb-env
