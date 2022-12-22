@@ -206,8 +206,12 @@ class StochasticPymc3ModelBuilder(DeterministicPymc3ModelBuilder):
         sequence.append(self.build_nfun())
         return super().build_loop(x_init, sequence=sequence, **kwargs)
 
-    def scheme(self, dWt, *x_prev):
-        return super().scheme(*x_prev) + dWt
+    def scheme(self, dWt, *x_prevs):
+        if self.sim.connectivity.idelays.any():
+            return super().scheme(*x_prevs) + dWt
+        else:
+            x_next = super().scheme(*x_prevs) + dWt
+            return tt.shape_padleft(x_next)
 
 
 class DefaultDeterministicPymc3ModelBuilder(DeterministicPymc3ModelBuilder):
