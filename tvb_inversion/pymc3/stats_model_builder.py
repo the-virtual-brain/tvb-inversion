@@ -77,7 +77,11 @@ class Pymc3ModelBuilder(StatisticalModel):
                                              print_source=False)
 
     def build_ifun(self, x_prevs, dX):
-        return x_prevs[0] + self.sim.integrator.dt * dX
+        if self.sim.connectivity.idelays.any():
+            x_prev = x_prevs[0]
+        else:
+            x_prev = x_prevs[0][0]
+        return x_prev + self.sim.integrator.dt * dX
 
     def build_mfun(self):
         pass
