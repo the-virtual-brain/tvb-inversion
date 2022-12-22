@@ -109,7 +109,8 @@ def build_model(
     inference_data, inference_summary = pymc_estimator.run_inference(**sample_kwargs)
 
     if save_file is not None:
-        inference_data.to_netcdf(filename=save_file, compress=False)
+        inference_data.to_netcdf(filename=save_file + ".nc", compress=False)
+        inference_summary.to_json(path_or_buf=save_file + ".json")
 
     return inference_data, inference_summary
 
@@ -121,5 +122,5 @@ if __name__ == "__main__":
     (t, X), = sim.run()
     np.save(f"{PATH}/pymc3_data/simulation_{run_id}.npy", X)
 
-    _ = build_model(sim=sim, observation=X, save_file=f"{PATH}/pymc3_data/{run_id}.nc",
-                      draws=250, tune=250, cores=2, target_accept=0.9, max_treedepth=15)
+    _ = build_model(sim=sim, observation=X, save_file=f"{PATH}/pymc3_data/{run_id}",
+                    draws=250, tune=250, cores=2, target_accept=0.9, max_treedepth=15)
