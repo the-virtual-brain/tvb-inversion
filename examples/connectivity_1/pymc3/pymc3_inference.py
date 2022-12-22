@@ -3,9 +3,13 @@ import os
 from datetime import datetime
 import numpy as np
 import pymc3 as pm
+import theano
+import theano.tensor as tt
 
 from tvb.simulator.lab import *
+from tvb.simulator.backend.theano import TheanoBackend
 from tvb_inversion.pymc3.inference import EstimatorPYMC
+from tvb_inversion.pymc3.stats_model import Pymc3Model
 from tvb_inversion.pymc3.prior import Pymc3Prior
 from tvb_inversion.pymc3.stats_model_builder import StochasticPymc3ModelBuilder
 from tvb_inversion.base.observation_models import linear
@@ -63,15 +67,10 @@ def build_model(
         model_a = pm.Deterministic(
             name="model_a", var=sim.model.a * (1.0 + def_std * model_a_star))
 
-        # coupling_a_star = pm.Normal(
-        #     name="coupling_a_star", mu=0.0, sd=1.0)
-        # coupling_a = pm.Deterministic(
-        #     name="coupling_a", var=sim.coupling.a[0].item() * (1.0 + def_std * coupling_a_star))
-
         x_init_star = pm.Normal(
-            name="x_init_star", mu=0.0, sd=1.0, shape=sim.initial_conditions.shape[:-1])
+            name="x_init_star", mu=0.0, sd=1.0, shape=sim.initial_conditions.shape[1:-1])
         x_init = pm.Deterministic(
-            name="x_init", var=sim.initial_conditions[:, :, :, 0] * (1.0 + def_std * x_init_star))
+            name="x_init", var=sim.initial_conditions[0, :, :, 0] * (1.0 + def_std * x_init_star))
 
         BoundedNormal = pm.Bound(pm.Normal, lower=0.0)
         nsig_star = BoundedNormal(
@@ -81,6 +80,8 @@ def build_model(
 
         dWt_star = pm.Normal(
             name="dWt_star", mu=0.0, sd=1.0, shape=(observation.shape[0], sim.model.nvar, sim.connectivity.number_of_regions))
+        dWt = pm.Deterministic(
+            name="dWt", var=tt.sqrt(2.0 * nsig * sim.integrator.dt) * dWt_star)
 
         amplitude_star = pm.Normal(
             name="amplitude_star", mu=0.0, sd=1.0)
@@ -105,10 +106,63 @@ def build_model(
               amplitude, offset, observation_noise]
     )
 
-    model_builder = StochasticPymc3ModelBuilder(
-        sim=sim, params=prior, observation_fun=linear, observation=observation[:, :, :, 0])
-    model_builder.compose_model()
-    pymc_model = model_builder.build()
+    pymc_model = Pymc3Model(sim=sim, params=prior)
+
+    def create_backend_funs(sim: simulator.Simulator):
+        # Create theano backend functions
+        template_dfun = """
+                       import theano
+                       import theano.tensor as tt
+                       import numpy as np
+                       <%include file="theano-dfuns.py.mako"/>
+                       """
+        dfun = TheanoBackend().build_py_func(
+            template_source=template_dfun, content=dict(sim=sim), name="dfuns", print_source=True)
+
+        # template_cfun = f"""
+        #                import theano
+        #                import theano.tensor as tt
+        #                import numpy as np
+        #                n_node = {sim.connectivity.number_of_regions}
+        #                <%include file="theano-coupling.py.mako"/>
+        #                """
+        #
+        # cfun = TheanoBackend().build_py_func(
+        #     template_source=template_cfun, content=dict(sim=sim), name="coupling", print_source=True)
+
+        return dfun
+
+    def scheme(dWt, x_prev):
+        # x_prev = x_prev[::-1]
+
+        # state = tt.stack(x_prev, axis=0)
+        # state = tt.transpose(state, axes=[1, 0, 2])
+
+        cX = tt.zeros((sim.history.n_cvar, sim.history.n_node))
+        # cX = cfun(cX, sim.connectivity.weights, state, sim.connectivity.delay_indices,
+        #           **prior.get_coupling_params())
+
+        dX = tt.zeros((sim.model.nvar, sim.history.n_node))
+        dX = dfun(dX, x_prev, cX, sim.model.spatial_parameter_matrix, **prior.get_model_params())
+
+        return x_prev + sim.integrator.dt * dX + dWt
+
+    dfun = create_backend_funs(sim)
+    with pymc_model.model:
+        # taps = list(-1 * np.arange(sim.connectivity.idelays.max() + 1) - 1)[::-1]
+        x_sim, updates = theano.scan(
+            fn=scheme,
+            sequences=[dWt],
+            outputs_info=[x_init],
+            n_steps=observation.shape[0]
+        )
+
+        x_hat = pm.Deterministic(
+            name="x_hat", var=linear(x_sim, **prior.get_observation_model_params()))
+
+        x_obs = pm.Normal(
+            name="x_obs", mu=x_hat[:, sim.model.cvar, :], sd=prior.dict.get("observation.noise", 1.0), shape=observation.shape[:-1], observed=observation[:, :, :, 0])
+
     pymc_estimator = EstimatorPYMC(stats_model=pymc_model)
 
     inference_data, inference_summary = pymc_estimator.run_inference(**sample_kwargs)

@@ -76,12 +76,8 @@ class Pymc3ModelBuilder(StatisticalModel):
         return TheanoBackend().build_py_func(template_source=template, content=dict(sim=self.sim), name="coupling",
                                              print_source=False)
 
-    def build_ifun(self, x_prevs, dX):
-        if self.sim.connectivity.idelays.any():
-            x_prev = x_prevs[0]
-        else:
-            x_prev = x_prevs[0][0]
-        return x_prev + self.sim.integrator.dt * dX
+    def build_ifun(self, x_prev, dX):
+        return x_prev[0] + self.sim.integrator.dt * dX
 
     def build_mfun(self):
         pass
@@ -92,27 +88,21 @@ class Pymc3ModelBuilder(StatisticalModel):
                                      var=self.obs_fun(x_sim, **self.params.get_observation_model_params()))
         return x_hat
 
-    def scheme(self, *x_prevs):
-        x_prevs = x_prevs[::-1]
+    def scheme(self, *x_prev):
+        x_prev = x_prev[::-1]
 
-        state = tt.stack(x_prevs, axis=0)
+        state = tt.stack(x_prev, axis=0)
         state = tt.transpose(state, axes=[1, 0, 2])
-        if not self.sim.connectivity.idelays.any():
-            state = state[0]
 
         cX = tt.zeros((self.sim.history.n_cvar, self.sim.history.n_node))
         if self.sim.connectivity.number_of_regions > 1:
             cX = self.cfun(cX, self.sim.connectivity.weights, state, self.sim.connectivity.delay_indices,
                            **self.params.get_coupling_params())
 
-        if self.sim.connectivity.idelays.any():
-            x_prev = x_prevs[0]
-        else:
-            x_prev = x_prevs[0][0]
         dX = tt.zeros((self.sim.model.nvar, self.sim.history.n_node))
-        dX = self.dfun(dX, x_prev, cX, self.sim.model.spatial_parameter_matrix, **self.params.get_model_params())
+        dX = self.dfun(dX, x_prev[0], cX, self.sim.model.spatial_parameter_matrix, **self.params.get_model_params())
 
-        return self.build_ifun(x_prevs, dX)
+        return self.build_ifun(x_prev, dX)
 
     def build_initial_conditions(self):
         # Get initial conditions from simulator.initial_conditions
@@ -206,12 +196,8 @@ class StochasticPymc3ModelBuilder(DeterministicPymc3ModelBuilder):
         sequence.append(self.build_nfun())
         return super().build_loop(x_init, sequence=sequence, **kwargs)
 
-    def scheme(self, dWt, *x_prevs):
-        if self.sim.connectivity.idelays.any():
-            return super().scheme(*x_prevs) + dWt
-        else:
-            x_next = super().scheme(*x_prevs) + dWt
-            return tt.shape_padleft(x_next)
+    def scheme(self, dWt, *x_prev):
+        return super().scheme(*x_prev) + dWt
 
 
 class DefaultDeterministicPymc3ModelBuilder(DeterministicPymc3ModelBuilder):
