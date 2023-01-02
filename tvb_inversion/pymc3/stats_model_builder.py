@@ -95,9 +95,8 @@ class Pymc3ModelBuilder(StatisticalModel):
         state = tt.transpose(state, axes=[1, 0, 2])
 
         cX = tt.zeros((self.sim.history.n_cvar, self.sim.history.n_node))
-        if self.sim.connectivity.number_of_regions > 1:
-            cX = self.cfun(cX, self.sim.connectivity.weights, state, self.sim.connectivity.delay_indices,
-                           **self.params.get_coupling_params())
+        cX = self.cfun(cX, self.sim.connectivity.weights, state, self.sim.connectivity.delay_indices,
+                       **self.params.get_coupling_params())
 
         dX = tt.zeros((self.sim.model.nvar, self.sim.history.n_node))
         dX = self.dfun(dX, x_prev[0], cX, self.sim.model.spatial_parameter_matrix, **self.params.get_model_params())

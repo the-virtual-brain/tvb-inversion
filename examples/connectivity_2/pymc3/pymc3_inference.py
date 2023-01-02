@@ -54,7 +54,7 @@ def build_model(
         save_file: Optional[str] = None,
         **sample_kwargs
 ):
-    def_std = 0.1
+    def_std = 0.5
 
     model = pm.Model()
     with model:
