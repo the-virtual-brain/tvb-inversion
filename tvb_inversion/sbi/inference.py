@@ -15,8 +15,6 @@ from tvb_inversion.base.sim_seq import SimSeq
 
 class EstimatorSBI(Estimator):
 
-    estimator: Callable
-
     def __init__(
             self,
             stats_model: SBIModel,
@@ -40,7 +38,7 @@ class EstimatorSBI(Estimator):
                 assert num_samples > 0, "Provide number of samples, seq or theta."
                 self.seq = self.stats_model.generate_sim_seq(num_samples=num_samples)
             self.theta = np.array(self.seq.values).squeeze()
-            self.theta = torch.as_tensor(self.theta[:, np.newaxis], dtype=torch.float32)
+            self.theta = torch.as_tensor(self.theta, dtype=torch.float32)
 
         try:
             method_fun: Callable = getattr(sbi_inference, method.upper())
