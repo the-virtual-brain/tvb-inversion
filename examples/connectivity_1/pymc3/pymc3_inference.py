@@ -117,7 +117,7 @@ def build_model(
                        <%include file="theano-dfuns.py.mako"/>
                        """
         dfun = TheanoBackend().build_py_func(
-            template_source=template_dfun, content=dict(sim=sim), name="dfuns", print_source=True)
+            template_source=template_dfun, content=dict(sim=sim), name="dfuns", print_source=False)
 
         # template_cfun = f"""
         #                import theano
@@ -182,4 +182,4 @@ if __name__ == "__main__":
     np.save(f"{PATH}/pymc3_data/simulation_{run_id}.npy", X)
 
     _ = build_model(sim=sim, observation=X, save_file=f"{PATH}/pymc3_data/{run_id}",
-                    draws=250, tune=250, cores=2, target_accept=0.9, max_treedepth=15)
+                    draws=300, tune=300, cores=4, target_accept=0.9, max_treedepth=15)
