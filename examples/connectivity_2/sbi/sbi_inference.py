@@ -70,14 +70,14 @@ if __name__ == "__main__":
     sim_params = {
         "model_a": sim.model.a[0],
         "coupling_a": sim.model.a[0],
-        "nsig": sim.noise.integrator.nsig[0]
+        "nsig": sim.integrator.noise.nsig[0]
     }
 
     def_std = 0.5
     inference_params = {
         "model_a": sim.model.a[0],
         "coupling_a": sim.model.a[0],
-        "nsig": sim.noise.integrator.nsig[0]
+        "nsig": sim.integrator.noise.nsig[0]
     }
 
     param_names = ["model.a", "coupling.a", "integrator.noise.nsig"]
