@@ -1,4 +1,5 @@
 import os
+import json
 import numpy as np
 import torch
 from tqdm import tqdm
@@ -66,10 +67,21 @@ if __name__ == "__main__":
     (_, X), = sim.run()
     np.save(f"{PATH}/sbi_data/simulation_{run_id}.npy", X)
 
+    sim_params = {
+        "model_a": sim.model.a[0],
+        "nsig": sim.noise.integrator.nsig[0]
+    }
+
+    def_std = 0.5
+    inference_params = {
+        "model_a": sim.model.a[0],
+        "nsig": sim.noise.integrator.nsig[0]
+    }
+
     param_names = ["model.a", "integrator.noise.nsig"]
     param_dists = [
-        torch.distributions.Normal(torch.Tensor([1.5]), torch.Tensor([0.5])),
-        torch.distributions.HalfNormal(torch.Tensor([1e-4]), torch.Tensor([5e-5]))
+        torch.distributions.Normal(torch.Tensor([inference_params["model_a"]]), torch.Tensor([def_std * inference_params["model_a"]])),
+        torch.distributions.HalfNormal(torch.Tensor([inference_params["nsig"]]), torch.Tensor([def_std * inference_params["nsig"]]))
     ]
     dist, _, _ = process_prior(param_dists)
 
@@ -88,3 +100,9 @@ if __name__ == "__main__":
     np.save(f"{PATH}/sbi_data/training_sims_{run_id}.npy", np.asarray(simulations))
     np.save(f"{PATH}/sbi_data/prior_samples_{run_id}.npy", np.asarray(estimator.theta))
     np.save(f"{PATH}/sbi_data/posterior_samples_{run_id}.npy", np.asarray(posterior_samples))
+    with open(f"{PATH}/sbi_data/sim_params_{run_id}.json", "w") as f:
+        json.dump(sim_params, f)
+        f.close()
+    with open(f"{PATH}/sbi_data/inference_params_{run_id}.json", "w") as f:
+        json.dump(inference_params, f)
+        f.close()
