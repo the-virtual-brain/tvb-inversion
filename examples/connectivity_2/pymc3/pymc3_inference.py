@@ -59,9 +59,9 @@ def build_model(
     model = pm.Model()
     with model:
         model_a_star = pm.Normal(
-            name="model_a_star", mu=0.0, sd=1.0, shape=sim.model.a.shape)
+            name="model_a_star", mu=0.0, sd=1.0)
         model_a = pm.Deterministic(
-            name="model_a", var=sim.model.a * (1.0 + def_std * model_a_star))
+            name="model_a", var=sim.model.a[0].item() * (1.0 + def_std * model_a_star))
 
         coupling_a_star = pm.Normal(
             name="coupling_a_star", mu=0.0, sd=1.0)
