@@ -1,5 +1,6 @@
 from typing import Optional
 import os
+import json
 from datetime import datetime
 import numpy as np
 import pymc3 as pm
@@ -50,18 +51,23 @@ def build_model(
         **sample_kwargs
 ):
     def_std = 0.5
+    inference_params = {
+        "model_a": sim.model.a[0].item(),
+        "coupling_a": sim.coupling.a[0].item(),
+        "nsig": sim.integrator.noise.nsig[0].item()
+    }
 
     model = pm.Model()
     with model:
         model_a_star = pm.Normal(
             name="model_a_star", mu=0.0, sd=1.0)
         model_a = pm.Deterministic(
-            name="model_a", var=sim.model.a[0].item() * (1.0 + def_std * model_a_star))
+            name="model_a", var=inference_params["model_a"] * (1.0 + def_std * model_a_star))
 
         coupling_a_star = pm.Normal(
             name="coupling_a_star", mu=0.0, sd=1.0)
         coupling_a = pm.Deterministic(
-            name="coupling_a", var=sim.coupling.a[0].item() * (1.0 + def_std * coupling_a_star))
+            name="coupling_a", var=inference_params["coupling_a"] * (1.0 + def_std * coupling_a_star))
 
         x_init_star = pm.Normal(
             name="x_init_star", mu=0.0, sd=1.0, shape=sim.initial_conditions.shape[:-1])
@@ -72,7 +78,7 @@ def build_model(
         nsig_star = BoundedNormal(
             name="nsig_star", mu=0.0, sd=1.0)
         nsig = pm.Deterministic(
-            name="nsig", var=sim.integrator.noise.nsig[0].item() * (1.0 + def_std * nsig_star))
+            name="nsig", var=inference_params["nsig"] * (1.0 + def_std * nsig_star))
 
         dWt_star = pm.Normal(
             name="dWt_star", mu=0.0, sd=1.0, shape=(observation.shape[0], sim.model.nvar, sim.connectivity.number_of_regions))
@@ -109,8 +115,10 @@ def build_model(
     inference_data, inference_summary = pymc_estimator.run_inference(**sample_kwargs)
 
     if save_file is not None:
-        inference_data.to_netcdf(filename=save_file + ".nc", compress=False)
-        inference_summary.to_json(path_or_buf=save_file + ".json")
+        inference_data.to_netcdf(filename=save_file + "_idata.nc", compress=False)
+        inference_summary.to_json(path_or_buf=save_file + "_isummary.json")
+        with open(save_file + "_iparams.json", "w") as f:
+            json.dump(inference_params, f)
 
     return inference_data, inference_summary
 
@@ -121,6 +129,13 @@ if __name__ == "__main__":
     sim = create_simulator(simulation_length=250)
     (t, X), = sim.run()
     np.save(f"{PATH}/pymc3_data/simulation_{run_id}.npy", X)
+    simulation_params = {
+        "model_a": sim.model.a[0].item(),
+        "coupling_a": sim.coupling.a[0].item(),
+        "nsig": sim.integrator.noise.nsig[0].item()
+    }
+    with open(f"{PATH}/pymc3_data/{run_id}_sim_params.json", "w") as f:
+        json.dump(simulation_params, f)
 
     _ = build_model(sim=sim, observation=X, save_file=f"{PATH}/pymc3_data/{run_id}",
                     draws=250, tune=250, cores=4, target_accept=0.9, max_treedepth=15)
