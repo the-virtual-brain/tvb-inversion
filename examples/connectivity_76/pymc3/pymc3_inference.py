@@ -126,7 +126,7 @@ def build_model(
 if __name__ == "__main__":
     run_id = datetime.now().strftime("%Y-%m-%d_%H%M")
 
-    sim = create_simulator(simulation_length=250)
+    sim = create_simulator(simulation_length=300)
     (t, X), = sim.run()
     np.save(f"{PATH}/pymc3_data/simulation_{run_id}.npy", X)
     simulation_params = {
@@ -138,4 +138,4 @@ if __name__ == "__main__":
         json.dump(simulation_params, f)
 
     _ = build_model(sim=sim, observation=X, save_file=f"{PATH}/pymc3_data/{run_id}",
-                    draws=250, tune=250, cores=4, target_accept=0.9, max_treedepth=15)
+                    draws=250, tune=250, cores=4, target_accept=0.8, max_treedepth=20)

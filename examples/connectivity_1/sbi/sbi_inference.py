@@ -94,11 +94,11 @@ if __name__ == "__main__":
     simulations = simulations.reshape((simulations.shape[0], simulations[0].size), order="F")
 
     estimator = EstimatorSBI(stats_model=sbi_model, seq=seq)
+    np.save(f"{PATH}/sbi_data/training_sims_{run_id}.npy", np.asarray(simulations))
+    np.save(f"{PATH}/sbi_data/prior_samples_{run_id}.npy", np.asarray(estimator.theta))
     posterior = estimator.train(simulations)
     posterior_samples = posterior.sample((20000, ), torch.as_tensor(X.reshape(X.size, order="F")))
 
-    np.save(f"{PATH}/sbi_data/training_sims_{run_id}.npy", np.asarray(simulations))
-    np.save(f"{PATH}/sbi_data/prior_samples_{run_id}.npy", np.asarray(estimator.theta))
     np.save(f"{PATH}/sbi_data/posterior_samples_{run_id}.npy", np.asarray(posterior_samples))
     with open(f"{PATH}/sbi_data/sim_params_{run_id}.json", "w") as f:
         json.dump(sim_params, f)

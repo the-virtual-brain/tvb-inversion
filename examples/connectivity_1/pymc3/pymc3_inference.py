@@ -61,8 +61,8 @@ def build_model(
 ):
     def_std = 0.5
     inference_params = {
-        "model_a": sim.model.a[0].item(),
-        "nsig": sim.integrator.noise.nsig[0].item()
+        "model_a": 3.0,
+        "nsig": 1.5e-4
     }
 
     model = pm.Model()
@@ -77,8 +77,10 @@ def build_model(
         x_init = pm.Deterministic(
             name="x_init", var=sim.initial_conditions[0, :, :, 0] * (1.0 + def_std * x_init_star))
 
-        BoundedNormal = pm.Bound(pm.Normal, lower=0.0)
-        nsig_star = BoundedNormal(
+        # BoundedNormal = pm.Bound(pm.Normal, lower=0.0)
+        # nsig_star = BoundedNormal(
+        #     name="nsig_star", mu=0.0, sd=1.0)
+        nsig_star = pm.Normal(
             name="nsig_star", mu=0.0, sd=1.0)
         nsig = pm.Deterministic(
             name="nsig", var=inference_params["nsig"] * (1.0 + def_std * nsig_star))
@@ -195,4 +197,4 @@ if __name__ == "__main__":
         json.dump(simulation_params, f)
 
     _ = build_model(sim=sim, observation=X, save_file=f"{PATH}/pymc3_data/{run_id}",
-                    draws=300, tune=300, cores=4, target_accept=0.9, max_treedepth=15)
+                    draws=500, tune=500, cores=4, target_accept=0.9, max_treedepth=20)

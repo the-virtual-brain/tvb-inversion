@@ -48,14 +48,19 @@ def create_simulator(simulation_length: float):
 
 
 def run_seq(sim_seq: tvb_inversion.base.sim_seq.SimSeq):
-    pool = Parallel(4)
+    theta = np.array(sim_seq.values).squeeze()
+    pool = Parallel(16)
 
     @delayed
-    def job(sim_, i):
+    def job(i, sim_):
         (t, y), = sim_.configure().run()
-        return y
 
-    results = pool(job(sim_, i) for i, sim_ in tqdm(enumerate(sim_seq)))
+        eps = theta[i, -1]
+        # y_obs = y.flatten() + np.random.multivariate_normal(mean=np.zeros(y.size), cov=np.diag(eps * np.ones(y.size)))
+        y_obs = y.flatten()
+        return y_obs
+
+    results = pool(job(i, sim_) for i, sim_ in tqdm(enumerate(sim_seq)))
 
     return results
 
@@ -63,42 +68,44 @@ def run_seq(sim_seq: tvb_inversion.base.sim_seq.SimSeq):
 if __name__ == "__main__":
     run_id = datetime.now().strftime("%Y-%m-%d_%H%M")
 
-    sim = create_simulator(simulation_length=250)
+    sim = create_simulator(simulation_length=500)
     (_, X), = sim.run()
     np.save(f"{PATH}/sbi_data/simulation_{run_id}.npy", X)
 
     sim_params = {
         "model_a": sim.model.a[0],
-        "coupling_a": sim.model.a[0],
+        "coupling_a": sim.coupling.a[0],
         "nsig": sim.integrator.noise.nsig[0]
     }
 
     def_std = 0.5
     inference_params = {
         "model_a": sim.model.a[0],
-        "coupling_a": sim.model.a[0],
+        "coupling_a": sim.coupling.a[0],
         "nsig": sim.integrator.noise.nsig[0]
     }
+    loc = np.log(inference_params["nsig"] ** 2 / np.sqrt(inference_params["nsig"] ** 2 + (def_std * inference_params["nsig"]) ** 2))
+    scale = np.log(1 + (def_std * inference_params["nsig"]) ** 2 / inference_params["nsig"] ** 2)
 
-    param_names = ["model.a", "coupling.a", "integrator.noise.nsig"]
+    param_names = ["model.a", "coupling.a", "integrator.noise.nsig", "observation_noise"]
     param_dists = [
         torch.distributions.Normal(torch.Tensor([inference_params["model_a"]]), torch.Tensor([def_std * inference_params["model_a"]])),
         torch.distributions.Normal(torch.Tensor([inference_params["coupling_a"]]), torch.Tensor([def_std * inference_params["coupling_a"]])),
-        torch.distributions.HalfNormal(torch.Tensor([inference_params["nsig"]]), torch.Tensor([def_std * inference_params["nsig"]]))
+        torch.distributions.LogNormal(torch.Tensor([loc]), torch.Tensor([scale]))
     ]
     dist, _, _ = process_prior(param_dists)
 
     prior = PytorchPrior(param_names, dist)
     sbi_model = SBIModel(sim, prior)
-    seq = sbi_model.generate_sim_seq(20000)
+    seq = sbi_model.generate_sim_seq(100000)
+    estimator = EstimatorSBI(stats_model=sbi_model, seq=seq)
 
     simulations = run_seq(sim_seq=seq)
     simulations = np.asarray(simulations, dtype=np.float32)
-    simulations = simulations.reshape((simulations.shape[0], simulations[0].size), order="F")
+    # simulations = simulations.reshape((simulations.shape[0], simulations[0].size), order="F")
 
-    estimator = EstimatorSBI(stats_model=sbi_model, seq=seq)
     posterior = estimator.train(simulations)
-    posterior_samples = posterior.sample((20000, ), torch.as_tensor(X.reshape(X.size, order="F")))
+    posterior_samples = posterior.sample((20000, ), torch.as_tensor(X.flatten()))
 
     np.save(f"{PATH}/sbi_data/training_sims_{run_id}.npy", np.asarray(simulations))
     np.save(f"{PATH}/sbi_data/prior_samples_{run_id}.npy", np.asarray(estimator.theta))
