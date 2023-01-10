@@ -57,9 +57,9 @@ def build_model(
 ):
     def_std = 0.5
     inference_params = {
-        "model_a": 3.0,
-        "coupling_a": 0.1,
-        "nsig": 1.5e-4
+        "model_a": sim.model.a[0].item(),
+        "coupling_a": sim.coupling.a[0].item(),
+        "nsig": sim.integrator.noise.nsig[0].item()
     }
 
     model = pm.Model()
@@ -100,17 +100,17 @@ def build_model(
         offset = pm.Deterministic(
             name="offset", var=def_std * offset_star)
 
-        observation_noise_star = pm.HalfNormal(
-            name="observation_noise_star", sd=1.0)
-        observation_noise = pm.Deterministic(
-            name="observation_noise", var=def_std * observation_noise_star)
+        measurement_noise_star = pm.HalfNormal(
+            name="measurement_noise_star", sd=1.0)
+        measurement_noise = pm.Deterministic(
+            name="measurement_noise", var=def_std * measurement_noise_star)
 
     prior = Pymc3Prior(
         model=model,
         names=["model.a", "coupling.a", "x_init", "integrator.noise.nsig", "dWt_star",
-               "observation.model.amplitude", "observation.model.offset", "observation.noise"],
+               "observation.amplitude", "observation.offset", "measurement_noise"],
         dist=[model_a, coupling_a, x_init, nsig, dWt_star,
-              amplitude, offset, observation_noise]
+              amplitude, offset, measurement_noise]
     )
 
     model_builder = StochasticPymc3ModelBuilder(

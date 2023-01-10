@@ -61,8 +61,8 @@ class Pymc3ModelBuilder(StatisticalModel):
            <%include file="theano-dfuns.py.mako"/>
            """
 
-        return TheanoBackend().build_py_func(template_source=template, content=dict(sim=self.sim), name="dfuns",
-                                             print_source=False)
+        return TheanoBackend().build_py_func(
+            template_source=template, content=dict(sim=self.sim, mparams=list(self.params.get_model_params().keys())), name="dfuns", print_source=False)
 
     def build_cfun(self):
         template = f"""
@@ -73,8 +73,8 @@ class Pymc3ModelBuilder(StatisticalModel):
            <%include file="theano-coupling.py.mako"/>
            """
 
-        return TheanoBackend().build_py_func(template_source=template, content=dict(sim=self.sim), name="coupling",
-                                             print_source=False)
+        return TheanoBackend().build_py_func(
+            template_source=template, content=dict(sim=self.sim, cparams=list(self.params.get_coupling_params().keys())), name="coupling", print_source=False)
 
     def build_ifun(self, x_prev, dX):
         return x_prev[0] + self.sim.integrator.dt * dX
@@ -142,7 +142,7 @@ class Pymc3ModelBuilder(StatisticalModel):
                 x_hat = x_sim
 
             if self.obs is not None:
-                x_obs = pm.Normal(name="x_obs", mu=x_hat[:, self.sim.model.cvar, :], sd=self.params.dict.get("observation.noise", 1.0),
+                x_obs = pm.Normal(name="x_obs", mu=x_hat[:, self.sim.model.cvar, :], sd=self.params.dict.get("measurement_noise", 1.0),
                                   shape=self.obs.shape, observed=self.obs)
 
     def build(self):
@@ -229,22 +229,22 @@ class DefaultDeterministicPymc3ModelBuilder(DeterministicPymc3ModelBuilder):
             offset_star = pm.Normal(name="offset_star", mu=0.0, sd=1.0)
             offset = pm.Deterministic(name="offset", var=def_std * offset_star)
 
-            observation_noise_star = pm.HalfNormal(name="observation_noise_star", sigma=1.0)
-            observation_noise = pm.Deterministic(name="observation_noise", var=def_std * observation_noise_star)
+            measurement_noise_star = pm.HalfNormal(name="measurement_noise_star", sigma=1.0)
+            measurement_noise = pm.Deterministic(name="measurement_noise", var=def_std * measurement_noise_star)
 
-        return amplitude, offset, observation_noise
+        return amplitude, offset, measurement_noise
 
     def _set_default_priors(self, def_std=0.1):
         x_init = self.set_initial_conditions(def_std)
-        amplitude, offset, observation_noise = self.set_observation_model(def_std)
-        return x_init, amplitude, offset, observation_noise
+        amplitude, offset, measurement_noise = self.set_observation_model(def_std)
+        return x_init, amplitude, offset, measurement_noise
 
     def set_default_prior(self, def_std=0.1):
-        x_init, amplitude, offset, observation_noise = self._set_default_priors(def_std)
+        x_init, amplitude, offset, measurement_noise = self._set_default_priors(def_std)
         names = ["x_init",
-                 "observation.model.amplitude", "observation.model.offset", "observation.noise"]
+                 "observation.amplitude", "observation.offset", "measurement_noise"]
         dist = [x_init,
-                amplitude, offset, observation_noise]
+                amplitude, offset, measurement_noise]
         self.params = self._build_or_append_prior(names, dist)
         return self.params
 
@@ -261,15 +261,15 @@ class DefaultStochasticPymc3ModelBuilder(StochasticPymc3ModelBuilder, DefaultDet
         return nsig, dWt_star
 
     def _set_default_priors(self, def_std=0.1):
-        x_init_offset, amplitude, offset, observation_noise = super()._set_default_priors(def_std)
+        x_init_offset, amplitude, offset, measurement_noise = super()._set_default_priors(def_std)
         nsig, dWt_star = self.set_noise(def_std)
-        return x_init_offset, nsig, dWt_star, amplitude, offset, observation_noise
+        return x_init_offset, nsig, dWt_star, amplitude, offset, measurement_noise
 
     def set_default_prior(self, def_std=0.1):
-        x_init, nsig, dWt_star, amplitude, offset, observation_noise = self._set_default_priors(def_std)
+        x_init, nsig, dWt_star, amplitude, offset, measurement_noise = self._set_default_priors(def_std)
         names = ["x_init", "integrator.noise.nsig", "dWt_star",
-                 "observation.model.amplitude", "observation.model.offset", "observation.noise"]
+                 "observation.amplitude", "observation.offset", "measurement_noise"]
         dist = [x_init, nsig, dWt_star,
-                amplitude, offset, observation_noise]
+                amplitude, offset, measurement_noise]
         self.params = self._build_or_append_prior(names, dist)
         return self.params

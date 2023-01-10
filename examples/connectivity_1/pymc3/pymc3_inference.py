@@ -61,8 +61,8 @@ def build_model(
 ):
     def_std = 0.5
     inference_params = {
-        "model_a": 3.0,
-        "nsig": 1.5e-4
+        "model_a": sim.model.a[0],
+        "nsig": sim.integrator.noise.nsig[0]
     }
 
     model = pm.Model()
@@ -100,17 +100,17 @@ def build_model(
         offset = pm.Deterministic(
             name="offset", var=def_std * offset_star)
 
-        observation_noise_star = pm.HalfNormal(
-            name="observation_noise_star", sd=1.0)
-        observation_noise = pm.Deterministic(
-            name="observation_noise", var=def_std * observation_noise_star)
+        measurement_noise_star = pm.HalfNormal(
+            name="measurement_noise_star", sd=1.0)
+        measurement_noise = pm.Deterministic(
+            name="measurement_noise", var=def_std * measurement_noise_star)
 
     prior = Pymc3Prior(
         model=model,
         names=["model.a", "x_init", "integrator.noise.nsig", "dWt_star",
-               "observation.model.amplitude", "observation.model.offset", "observation.noise"],
+               "observation.amplitude", "observation.offset", "measurement_noise"],
         dist=[model_a, x_init, nsig, dWt_star,
-              amplitude, offset, observation_noise]
+              amplitude, offset, measurement_noise]
     )
 
     pymc_model = Pymc3Model(sim=sim, params=prior)
@@ -124,7 +124,7 @@ def build_model(
                        <%include file="theano-dfuns.py.mako"/>
                        """
         dfun = TheanoBackend().build_py_func(
-            template_source=template_dfun, content=dict(sim=sim), name="dfuns", print_source=False)
+            template_source=template_dfun, content=dict(sim=sim, mparams=list(prior.get_model_params().keys())), name="dfuns", print_source=False)
 
         # template_cfun = f"""
         #                import theano
@@ -168,7 +168,7 @@ def build_model(
             name="x_hat", var=linear(x_sim, **prior.get_observation_model_params()))
 
         x_obs = pm.Normal(
-            name="x_obs", mu=x_hat[:, sim.model.cvar, :], sd=prior.dict.get("observation.noise", 1.0), shape=observation.shape[:-1], observed=observation[:, :, :, 0])
+            name="x_obs", mu=x_hat[:, sim.model.cvar, :], sd=prior.dict.get("measurement_noise", 1.0), shape=observation.shape[:-1], observed=observation[:, :, :, 0])
 
     pymc_estimator = EstimatorPYMC(stats_model=pymc_model)
 

@@ -45,4 +45,4 @@ class Pymc3Prior(Prior):
         return self.get_params_from_path("monitors[%d]" % id)
 
     def get_observation_model_params(self):
-        return self.get_params_from_path("observation.model")
+        return self.get_params_from_path("observation")
