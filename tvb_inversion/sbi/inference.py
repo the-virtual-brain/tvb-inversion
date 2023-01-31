@@ -61,11 +61,11 @@ class EstimatorSBI(Estimator):
 
         return summary_stats
 
-    def train(self, summary_stats: np.ndarray) -> "Posterior":
+    def train(self, summary_stats: np.ndarray, **train_kwargs) -> "Posterior":
         x = torch.as_tensor(summary_stats, dtype=torch.float32)
 
         self.logger.info(f'Starting training with {self._method}...')
-        _ = self.estimator.append_simulations(self.theta, x).train()
+        _ = self.estimator.append_simulations(self.theta, x).train(**train_kwargs)
         posterior = self.estimator.build_posterior()
         self.logger.info(f'Finished training with {self._method}...')
         self.posterior = posterior
