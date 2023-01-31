@@ -35,7 +35,7 @@ def create_simulator(simulation_length: float):
         model=models.oscillator.Generic2dOscillator(a=np.array([1.5])),
         connectivity=conn,
         coupling=coupling.Difference(),
-        integrator=integrators.HeunStochastic(
+        integrator=integrators.EulerStochastic(
             dt=1.0,
             noise=noise.Additive(
                 nsig=np.array([1e-4]),
@@ -61,16 +61,18 @@ def build_model(
 ):
     def_std = 0.5
     inference_params = {
-        "model_a": sim.model.a[0],
-        "nsig": sim.integrator.noise.nsig[0]
+        "model_a": sim.model.a[0] + 0.5 * sim.model.a[0],
+        "nsig": sim.integrator.noise.nsig[0] + 0.5 * sim.integrator.noise.nsig[0]
     }
 
     model = pm.Model()
     with model:
         model_a_star = pm.Normal(
             name="model_a_star", mu=0.0, sd=1.0)
+        #model_a = pm.Deterministic(
+        #    name="model_a", var=inference_params["model_a"] * (1.0 + def_std * model_a_star))
         model_a = pm.Deterministic(
-            name="model_a", var=inference_params["model_a"] * (1.0 + def_std * model_a_star))
+            name="model_a", var=inference_params["model_a"] + def_std * sim.model.a[0] * model_a_star)
 
         x_init_star = pm.Normal(
             name="x_init_star", mu=0.0, sd=1.0, shape=sim.initial_conditions.shape[1:-1])
@@ -82,8 +84,10 @@ def build_model(
         #     name="nsig_star", mu=0.0, sd=1.0)
         nsig_star = pm.Normal(
             name="nsig_star", mu=0.0, sd=1.0)
+        #nsig = pm.Deterministic(
+        #    name="nsig", var=inference_params["nsig"] * (1.0 + def_std * nsig_star))
         nsig = pm.Deterministic(
-            name="nsig", var=inference_params["nsig"] * (1.0 + def_std * nsig_star))
+            name="nsig", var=inference_params["nsig"] + def_std * sim.integrator.noise.nsig[0] * nsig_star)
 
         dWt_star = pm.Normal(
             name="dWt_star", mu=0.0, sd=1.0, shape=(observation.shape[0], sim.model.nvar, sim.connectivity.number_of_regions))
@@ -190,11 +194,11 @@ if __name__ == "__main__":
     (t, X), = sim.run()
     np.save(f"{PATH}/pymc3_data/simulation_{run_id}.npy", X)
     simulation_params = {
-        "model_a": sim.model.a[0].item(),
-        "nsig": sim.integrator.noise.nsig[0].item()
+        "model_a": sim.model.a[0],
+        "nsig": sim.integrator.noise.nsig[0]
     }
     with open(f"{PATH}/pymc3_data/{run_id}_sim_params.json", "w") as f:
         json.dump(simulation_params, f)
 
     _ = build_model(sim=sim, observation=X, save_file=f"{PATH}/pymc3_data/{run_id}",
-                    draws=500, tune=500, cores=4, target_accept=0.9, max_treedepth=20)
+                    draws=600, tune=600, cores=4, target_accept=0.95, max_treedepth=15)
