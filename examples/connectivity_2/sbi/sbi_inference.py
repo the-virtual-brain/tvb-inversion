@@ -92,12 +92,13 @@ if __name__ == "__main__":
     loc = np.log(inference_params["nsig"] ** 2 / np.sqrt(inference_params["nsig"] ** 2 + (def_std * sim.integrator.noise.nsig[0]) ** 2))
     scale = np.log(1 + (def_std * sim.integrator.noise.nsig[0]) ** 2 / inference_params["nsig"] ** 2)
 
-    param_names = ["model.a", "coupling.a", "integrator.noise.nsig"]  # , "measurement_noise"]
+    # param_names = ["model.a", "coupling.a", "integrator.noise.nsig" , "measurement_noise"]
+    param_names = [f"model.a[{i}]" for i in range(len(sim.model.a))] + ["coupling.a", "integrator.noise.nsig"]
     param_dists = [
         torch.distributions.Normal(
-            loc=torch.Tensor([inference_params["model_a"]]),
-            scale=torch.Tensor(0.75 * np.ones(sim.model.a.shape))
-        ),
+            loc=torch.Tensor([inference_params["model_a"].tolist()[i]]),
+            scale=torch.Tensor([0.75])
+        ) for i in range(len(sim.model.a))] + [
         torch.distributions.Normal(
             loc=torch.Tensor([inference_params["coupling_a"]]),
             scale=torch.Tensor([def_std * sim.coupling.a[0]])
@@ -107,7 +108,7 @@ if __name__ == "__main__":
             scale=torch.Tensor([scale])
         ),
         # torch.distributions.HalfNormal(torch.Tensor([0.1]))
-    ]
+        ]
     #param_dists = [
     #    torch.distributions.Uniform(
     #        low=torch.Tensor([inference_params["model_a"] - def_std * sim_params["model_a"]]),
@@ -127,15 +128,16 @@ if __name__ == "__main__":
 
     prior = PytorchPrior(param_names, dist)
     sbi_model = SBIModel(sim, prior)
-    seq = sbi_model.generate_sim_seq(2000)
+    seq = sbi_model.generate_sim_seq(10000)
     estimator = EstimatorSBI(stats_model=sbi_model, seq=seq)
 
     simulations = run_seq(sim_seq=seq)
     simulations = np.asarray(simulations, dtype=np.float32)
     # simulations = simulations.reshape((simulations.shape[0], simulations[0].size), order="F")
 
-    len_train_data = 1600
+    len_train_data = int(0.8 * len(simulations))
     posterior = estimator.train(simulations, len_train_data)
+    #posterior_samples = posterior.sample((2000, ), X.flatten())
     posterior_samples = []
     for x in simulations[len_train_data:]:
         posterior_samples_ = posterior.sample((2000, ), x)

@@ -105,15 +105,16 @@ if __name__ == "__main__":
 
     prior = PytorchPrior(param_names, dist)
     sbi_model = SBIModel(sim, prior)
-    seq = sbi_model.generate_sim_seq(2000)
+    seq = sbi_model.generate_sim_seq(10000)
     estimator = EstimatorSBI(stats_model=sbi_model, seq=seq)
 
     simulations = run_seq(sim_seq=seq)
     simulations = np.asarray(simulations, dtype=np.float32)
     # simulations = simulations.reshape((simulations.shape[0], simulations[0].size), order="F")
 
-    len_train_data = 1600
+    len_train_data = int(0.8 * len(simulations))
     posterior = estimator.train(simulations, len_train_data)
+    # posterior_samples = posterior.sample((2000, ), X.flatten())
     posterior_samples = []
     for x in simulations[len_train_data:]:
         posterior_samples_ = posterior.sample((2000, ), x)

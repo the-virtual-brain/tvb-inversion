@@ -13,14 +13,19 @@ def plot_posterior_samples(inference_data, init_params: Dict[str, float], save: 
     for ax in axes.reshape(-1):
         ax.set_axis_off()
     for i, (key, value) in enumerate(init_params.items()):
-
-        posterior_ = inference_data.posterior[key].values.reshape((inference_data.posterior[key].values.size,))
         ax = axes.reshape(-1)[i]
         ax.set_axis_on()
-        ax.hist(posterior_, bins=100, alpha=0.5)
-        ax.axvline(init_params[key], color="r", label="simulation parameter")
-        ax.axvline(posterior_.mean(), color="k", label="posterior mean")
 
+        if "[" in key:
+            index = [int(c) for c in key if c.isdigit()][0]
+            key_raw = key[:-3]
+            posterior_ = inference_data.posterior[key_raw].values[..., index].flatten()
+        else:
+            posterior_ = inference_data.posterior[key].values.reshape((inference_data.posterior[key].values.size,))
+
+        ax.hist(posterior_, bins=100, alpha=0.5)
+        ax.axvline(posterior_.mean(), color="k", label="posterior mean")
+        ax.axvline(init_params[key], color="r", label="simulation parameter")
         ax.set_title(key, fontsize=18)
         ax.tick_params(axis="both", labelsize=16)
     try:
