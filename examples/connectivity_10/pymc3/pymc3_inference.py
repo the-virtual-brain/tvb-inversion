@@ -22,7 +22,7 @@ np.random.seed(42)
 
 def create_simulator(simulation_length: float):
     conn = connectivity.Connectivity()
-    #conn.weights = np.ones((10, 10)) - np.eye(10)
+    # conn.weights = np.ones((10, 10)) - np.eye(10)
     weights = np.random.normal(loc=1.0, scale=0.25, size=(10, 10))
     np.fill_diagonal(weights, 0.0)
     conn.weights = weights
@@ -71,14 +71,14 @@ def build_model(
     with model:
         model_a_star = pm.Normal(
             name="model_a_star", mu=0.0, sd=1.0, shape=sim.model.a.shape)
-        #model_a = pm.Deterministic(
+        # model_a = pm.Deterministic(
         #    name="model_a", var=inference_params["model_a"] * (1.0 + def_std * model_a_star))
         model_a = pm.Deterministic(
             name="model_a", var=inference_params["model_a"] + 0.75 * model_a_star)
 
         coupling_a_star = pm.Normal(
             name="coupling_a_star", mu=0.0, sd=1.0)
-        #coupling_a = pm.Deterministic(
+        # coupling_a = pm.Deterministic(
         #    name="coupling_a", var=inference_params["coupling_a"] * (1.0 + def_std * coupling_a_star))
         coupling_a = pm.Deterministic(
             name="coupling_a", var=inference_params["coupling_a"] + def_std * sim.coupling.a[0] * coupling_a_star)
@@ -93,7 +93,7 @@ def build_model(
         #     name="nsig_star", mu=0.0, sd=1.0)
         nsig_star = pm.Normal(
             name="nsig_star", mu=0.0, sd=1.0)
-        #nsig = pm.Deterministic(
+        # nsig = pm.Deterministic(
         #    name="nsig", var=inference_params["nsig"] * (1.0 + def_std * nsig_star))
         nsig = pm.Deterministic(
             name="nsig", var=inference_params["nsig"] + def_std * sim.integrator.noise.nsig[0] * nsig_star)

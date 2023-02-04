@@ -69,7 +69,7 @@ def build_model(
     with model:
         model_a_star = pm.Normal(
             name="model_a_star", mu=0.0, sd=1.0)
-        #model_a = pm.Deterministic(
+        # model_a = pm.Deterministic(
         #    name="model_a", var=inference_params["model_a"] * (1.0 + def_std * model_a_star))
         model_a = pm.Deterministic(
             name="model_a", var=inference_params["model_a"] + def_std * sim.model.a[0] * model_a_star)
@@ -84,7 +84,7 @@ def build_model(
         #     name="nsig_star", mu=0.0, sd=1.0)
         nsig_star = pm.Normal(
             name="nsig_star", mu=0.0, sd=1.0)
-        #nsig = pm.Deterministic(
+        # nsig = pm.Deterministic(
         #    name="nsig", var=inference_params["nsig"] * (1.0 + def_std * nsig_star))
         nsig = pm.Deterministic(
             name="nsig", var=inference_params["nsig"] + def_std * sim.integrator.noise.nsig[0] * nsig_star)
@@ -201,4 +201,4 @@ if __name__ == "__main__":
         json.dump(simulation_params, f)
 
     _ = build_model(sim=sim, observation=X, save_file=f"{PATH}/pymc3_data/{run_id}",
-                    draws=600, tune=600, cores=4, target_accept=0.95, max_treedepth=15)
+                    draws=500, tune=500, cores=4, target_accept=0.95, max_treedepth=15)

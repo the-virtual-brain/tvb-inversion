@@ -23,7 +23,7 @@ def create_simulator(simulation_length: float):
     conn = connectivity.Connectivity.from_file()
 
     sim = simulator.Simulator(
-        model=models.oscillator.Generic2dOscillator(a=np.array([1.5])),
+        model=models.oscillator.Generic2dOscillator(a=np.random.normal(loc=1.5, scale=0.75, size=(len(conn.weights),))),
         connectivity=conn,
         coupling=coupling.Difference(),
         integrator=integrators.HeunStochastic(
@@ -52,22 +52,27 @@ def build_model(
 ):
     def_std = 0.5
     inference_params = {
-        "model_a": sim.model.a[0].item(),
-        "coupling_a": sim.coupling.a[0].item(),
-        "nsig": sim.integrator.noise.nsig[0].item()
+        "model_a": sim.model.a,
+        # "model_a": 1.5 * np.ones(sim.model.a.shape),
+        "coupling_a": sim.coupling.a[0],  # + 0.5 * sim.coupling.a[0],
+        "nsig": sim.integrator.noise.nsig[0],  # + 0.5 * sim.integrator.noise.nsig[0]
     }
 
     model = pm.Model()
     with model:
         model_a_star = pm.Normal(
             name="model_a_star", mu=0.0, sd=1.0)
+        # model_a = pm.Deterministic(
+        #     name="model_a", var=inference_params["model_a"] * (1.0 + def_std * model_a_star))
         model_a = pm.Deterministic(
-            name="model_a", var=inference_params["model_a"] * (1.0 + def_std * model_a_star))
+            name="model_a", var=inference_params["model_a"] + 0.75 * model_a_star)
 
         coupling_a_star = pm.Normal(
             name="coupling_a_star", mu=0.0, sd=1.0)
+        # coupling_a = pm.Deterministic(
+        #    name="coupling_a", var=inference_params["coupling_a"] * (1.0 + def_std * coupling_a_star))
         coupling_a = pm.Deterministic(
-            name="coupling_a", var=inference_params["coupling_a"] * (1.0 + def_std * coupling_a_star))
+            name="coupling_a", var=inference_params["coupling_a"] + def_std * sim.coupling.a[0] * coupling_a_star)
 
         x_init_star = pm.Normal(
             name="x_init_star", mu=0.0, sd=1.0, shape=sim.initial_conditions.shape[:-1])
@@ -79,8 +84,10 @@ def build_model(
         #     name="nsig_star", mu=0.0, sd=1.0)
         nsig_star = pm.Normal(
             name="nsig_star", mu=0.0, sd=1.0)
+        # nsig = pm.Deterministic(
+        #    name="nsig", var=inference_params["nsig"] * (1.0 + def_std * nsig_star))
         nsig = pm.Deterministic(
-            name="nsig", var=inference_params["nsig"] * (1.0 + def_std * nsig_star))
+            name="nsig", var=inference_params["nsig"] + def_std * sim.integrator.noise.nsig[0] * nsig_star)
 
         dWt_star = pm.Normal(
             name="dWt_star", mu=0.0, sd=1.0, shape=(observation.shape[0], sim.model.nvar, sim.connectivity.number_of_regions))
@@ -120,6 +127,7 @@ def build_model(
         inference_data.to_netcdf(filename=save_file + "_idata.nc", compress=False)
         inference_summary.to_json(path_or_buf=save_file + "_isummary.json")
         with open(save_file + "_iparams.json", "w") as f:
+            inference_params["model_a"] = inference_params["model_a"].tolist()
             json.dump(inference_params, f)
 
     return inference_data, inference_summary
@@ -132,12 +140,12 @@ if __name__ == "__main__":
     (t, X), = sim.run()
     np.save(f"{PATH}/pymc3_data/simulation_{run_id}.npy", X)
     simulation_params = {
-        "model_a": sim.model.a[0].item(),
-        "coupling_a": sim.coupling.a[0].item(),
-        "nsig": sim.integrator.noise.nsig[0].item()
+        "model_a": sim.model.a.tolist(),
+        "coupling_a": sim.coupling.a[0],
+        "nsig": sim.integrator.noise.nsig[0]
     }
     with open(f"{PATH}/pymc3_data/{run_id}_sim_params.json", "w") as f:
         json.dump(simulation_params, f)
 
     _ = build_model(sim=sim, observation=X, save_file=f"{PATH}/pymc3_data/{run_id}",
-                    draws=250, tune=250, cores=4, target_accept=0.9, max_treedepth=20)
+                    draws=250, tune=250, cores=4, target_accept=0.95, max_treedepth=15)
