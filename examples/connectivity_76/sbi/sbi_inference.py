@@ -68,7 +68,7 @@ if __name__ == "__main__":
     (_, X), = sim.run()
     np.save(f"{PATH}/sbi_data/simulation_{run_id}.npy", X)
 
-    len_data = 10000
+    len_data = 5000
 
     sim_params = {
         "model_a": sim.model.a.tolist(),
