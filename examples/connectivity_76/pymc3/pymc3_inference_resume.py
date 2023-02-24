@@ -124,7 +124,13 @@ def build_model(
     pymc_model = model_builder.build()
     pymc_estimator = EstimatorPYMC(stats_model=pymc_model)
 
-    inference_data, inference_summary = pymc_estimator.run_inference(**sample_kwargs)
+    # inference_data, inference_summary = pymc_estimator.run_inference(**sample_kwargs)
+    with pymc_estimator.model:
+        trace1 = pm.load_trace(".trace")
+        trace2 = pm.sample(trace=trace1, **sample_kwargs)
+        posterior_predictive = pm.sample_posterior_predictive(trace=trace2)
+        inference_data = az.from_pymc3(trace=trace2, posterior_predictive=posterior_predictive, save_warmup=True)
+        inference_summary = az.summary(inference_data)
 
     if save_file is not None:
         inference_data.to_netcdf(filename=save_file + "_idata.nc", compress=False)
@@ -151,4 +157,4 @@ if __name__ == "__main__":
         json.dump(simulation_params, f)
 
     _ = build_model(sim=sim, observation=X, save_file=f"{PATH}/pymc3_data/{run_id}",
-                    draws=250, tune=250, cores=4, target_accept=0.95, max_treedepth=15, discard_tuned_samples=False)
+                    draws=250, tune=0, cores=4, target_accept=0.95, max_treedepth=15, discard_tuned_samples=False)
