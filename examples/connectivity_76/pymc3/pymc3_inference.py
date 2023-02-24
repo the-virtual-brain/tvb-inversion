@@ -21,9 +21,12 @@ PATH = os.path.dirname(__file__)
 
 def create_simulator(simulation_length: float):
     conn = connectivity.Connectivity.from_file()
+    Nr = conn.weights.shape[0]
+    conn.weights = conn.weights - conn.weights*np.eye(Nr)
+    conn.configure()
 
     sim = simulator.Simulator(
-        model=models.oscillator.Generic2dOscillator(a=np.random.normal(loc=1.5, scale=0.75, size=(len(conn.weights),))),
+        model=models.oscillator.Generic2dOscillator(a=np.random.normal(loc=1.5, scale=0.75, size=(Nr,))),
         connectivity=conn,
         coupling=coupling.Difference(),
         integrator=integrators.HeunStochastic(
@@ -61,7 +64,7 @@ def build_model(
     model = pm.Model()
     with model:
         model_a_star = pm.Normal(
-            name="model_a_star", mu=0.0, sd=1.0)
+            name="model_a_star", mu=0.0, sd=1.0, shape=sim.model.a.shape)
         # model_a = pm.Deterministic(
         #     name="model_a", var=inference_params["model_a"] * (1.0 + def_std * model_a_star))
         model_a = pm.Deterministic(
@@ -133,7 +136,7 @@ def build_model(
             inference_params["model_a"] = inference_params["model_a"].tolist()
             json.dump(inference_params, f)
 
-    return inference_data, inference_summary
+    return trace
 
 
 if __name__ == "__main__":
