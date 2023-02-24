@@ -1,5 +1,5 @@
 #!/bin/bash -l
-#SBATCH --job-name="76node-pymc3"
+#SBATCH --job-name="76node-pymc3-2"
 #SBATCH --account="ich012"
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=emilius.richter@fu-berlin.de
@@ -12,7 +12,7 @@
 #SBATCH --constraint=mc
 #SBATCH --hint=multithread
 #SBATCH --mem=120GB
-#SBATCH --output=pymc3_data/slurm.out
+#SBATCH --output=pymc3_data/slurm-2.out
 
 source ~/.bashrc
 source activate tvb-env

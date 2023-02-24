@@ -72,7 +72,7 @@ if __name__ == "__main__":
     (_, X), = sim.run()
     np.save(f"{PATH}/sbi_data/simulation_{run_id}.npy", X)
 
-    len_data = 10000
+    len_data = 5000
 
     sim_params = {
         "model_a": sim.model.a[0],
@@ -148,6 +148,7 @@ if __name__ == "__main__":
     np.save(f"{PATH}/sbi_data/training_sims_{run_id}.npy", np.asarray(simulations))
     np.save(f"{PATH}/sbi_data/test_sims_{run_id}.npy", np.asarray(test_simulations))
     np.save(f"{PATH}/sbi_data/prior_samples_{run_id}.npy", np.asarray(estimator.theta))
+    np.save(f"{PATH}/sbi_data/test_samples_{run_id}.npy", np.array(correct_seq.values).squeeze())
     np.save(f"{PATH}/sbi_data/posterior_samples_{run_id}.npy", np.asarray(posterior_samples))
     with open(f"{PATH}/sbi_data/sim_params_{run_id}.json", "w") as f:
         json.dump(sim_params, f)

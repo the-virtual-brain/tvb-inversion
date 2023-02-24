@@ -61,8 +61,8 @@ def build_model(
 ):
     def_std = 0.5
     inference_params = {
-        "model_a": sim.model.a[0] + 0.5 * sim.model.a[0],
-        "nsig": sim.integrator.noise.nsig[0] + 0.5 * sim.integrator.noise.nsig[0]
+        "model_a": sim.model.a[0],  # + 0.5 * sim.model.a[0],
+        "nsig": sim.integrator.noise.nsig[0],  # + 0.5 * sim.integrator.noise.nsig[0]
     }
 
     model = pm.Model()

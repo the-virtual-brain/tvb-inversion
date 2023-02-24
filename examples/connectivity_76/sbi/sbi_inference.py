@@ -162,7 +162,7 @@ if __name__ == "__main__":
 
     # posterior_samples = posterior.sample((2000, ), X.flatten())
     posterior_samples = []
-    for x in test_simulations:
+    for x in tqdm(test_simulations):
         posterior_samples_ = posterior.sample((2000,), x)
         posterior_samples.append(np.asarray(posterior_samples_))
     posterior_samples = np.asarray(posterior_samples)
