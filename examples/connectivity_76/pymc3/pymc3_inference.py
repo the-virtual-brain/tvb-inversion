@@ -17,6 +17,7 @@ from tvb_inversion.pymc3.examples import (
 )
 
 PATH = os.path.dirname(__file__)
+np.random.seed(42)
 
 
 def create_simulator(simulation_length: float):

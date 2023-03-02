@@ -20,9 +20,12 @@ np.random.seed(42)
 
 def create_simulator(simulation_length: float):
     conn = connectivity.Connectivity.from_file()
+    Nr = conn.weights.shape[0]
+    conn.weights = conn.weights - conn.weights*np.eye(Nr)
+    conn.configure()
 
     sim = simulator.Simulator(
-        model=models.oscillator.Generic2dOscillator(a=np.random.normal(loc=1.5, scale=0.75, size=(len(conn.weights),))),
+        model=models.oscillator.Generic2dOscillator(a=np.random.normal(loc=1.5, scale=0.75, size=(Nr,))),
         connectivity=conn,
         coupling=coupling.Difference(),
         integrator=integrators.HeunStochastic(
@@ -105,10 +108,10 @@ if __name__ == "__main__":
 
     def_std = 0.5
     inference_params = {
-        "model_a": sim.model.a,
-        # "model_a": 1.5 * np.ones(sim.model.a.shape),
-        "coupling_a": sim.coupling.a[0],  # + 0.5 * sim.coupling.a[0],
-        "nsig": sim.integrator.noise.nsig[0],  # + 0.5 * sim.integrator.noise.nsig[0],
+        # "model_a": sim.model.a,
+        "model_a": 1.5 * np.ones(sim.model.a.shape),
+        "coupling_a": sim.coupling.a[0] + 0.5 * sim.coupling.a[0],
+        "nsig": sim.integrator.noise.nsig[0] + 0.5 * sim.integrator.noise.nsig[0],
         # "measurement_noise": 0.0
     }
     loc = np.log(inference_params["nsig"] ** 2 / np.sqrt(inference_params["nsig"] ** 2 + (def_std * sim.integrator.noise.nsig[0]) ** 2))
@@ -163,13 +166,14 @@ if __name__ == "__main__":
     # posterior_samples = posterior.sample((2000, ), X.flatten())
     posterior_samples = []
     for x in tqdm(test_simulations):
-        posterior_samples_ = posterior.sample((2000,), x)
+        posterior_samples_ = posterior.sample((500,), x)
         posterior_samples.append(np.asarray(posterior_samples_))
     posterior_samples = np.asarray(posterior_samples)
 
     np.save(f"{PATH}/sbi_data/training_sims_{run_id}.npy", np.asarray(simulations))
     np.save(f"{PATH}/sbi_data/test_sims_{run_id}.npy", np.asarray(test_simulations))
     np.save(f"{PATH}/sbi_data/prior_samples_{run_id}.npy", np.asarray(estimator.theta))
+    np.save(f"{PATH}/sbi_data/test_samples_{run_id}.npy", np.array(correct_seq.values).squeeze())
     np.save(f"{PATH}/sbi_data/posterior_samples_{run_id}.npy", np.asarray(posterior_samples))
     with open(f"{PATH}/sbi_data/sim_params_{run_id}.json", "w") as f:
         json.dump(sim_params, f)

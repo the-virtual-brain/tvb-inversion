@@ -4,6 +4,7 @@ import json
 from datetime import datetime
 import numpy as np
 import pymc3 as pm
+import pickle
 
 from tvb.simulator.lab import *
 from tvb_inversion.pymc3.inference import EstimatorPYMC
@@ -17,6 +18,7 @@ from tvb_inversion.pymc3.examples import (
 )
 
 PATH = os.path.dirname(__file__)
+np.random.seed(42)
 
 
 def create_simulator(simulation_length: float):
@@ -128,6 +130,8 @@ def build_model(
     with pymc_estimator.model:
         trace = pm.sample(**sample_kwargs)
         _ = pm.save_trace(trace)
+        with open(save_file + "_tuning_model.pkl", "wb") as buff:
+            pickle.dump({"model": pymc_estimator.model, "trace": trace, "obs": observation}, buff)
 
     if save_file is not None:
         # inference_data.to_netcdf(filename=save_file + "_idata.nc", compress=False)
@@ -154,4 +158,4 @@ if __name__ == "__main__":
         json.dump(simulation_params, f)
 
     _ = build_model(sim=sim, observation=X, save_file=f"{PATH}/pymc3_data/{run_id}",
-                    draws=100, tune=250, cores=4, target_accept=0.95, max_treedepth=15, discard_tuned_samples=False)
+                    draws=25, tune=250, cores=4, target_accept=0.95, max_treedepth=10, discard_tuned_samples=False)

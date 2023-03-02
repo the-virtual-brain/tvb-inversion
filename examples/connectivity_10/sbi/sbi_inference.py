@@ -33,7 +33,7 @@ def create_simulator(simulation_length: float):
         model=models.oscillator.Generic2dOscillator(a=np.random.normal(loc=1.5, scale=0.75, size=(10,))),
         connectivity=conn,
         coupling=coupling.Difference(),
-        integrator=integrators.HeunStochastic(
+        integrator=integrators.EulerStochastic(
             dt=1.0,
             noise=noise.Additive(
                 nsig=np.array([1e-4]),

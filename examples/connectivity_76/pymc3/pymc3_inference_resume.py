@@ -4,6 +4,8 @@ import json
 from datetime import datetime
 import numpy as np
 import pymc3 as pm
+import arviz as az
+import pickle
 
 from tvb.simulator.lab import *
 from tvb_inversion.pymc3.inference import EstimatorPYMC
@@ -17,6 +19,7 @@ from tvb_inversion.pymc3.examples import (
 )
 
 PATH = os.path.dirname(__file__)
+np.random.seed(42)
 
 
 def create_simulator(simulation_length: float):
@@ -60,7 +63,7 @@ def build_model(
         "coupling_a": sim.coupling.a[0],  # + 0.5 * sim.coupling.a[0],
         "nsig": sim.integrator.noise.nsig[0],  # + 0.5 * sim.integrator.noise.nsig[0]
     }
-
+    
     model = pm.Model()
     with model:
         model_a_star = pm.Normal(
@@ -126,7 +129,7 @@ def build_model(
 
     # inference_data, inference_summary = pymc_estimator.run_inference(**sample_kwargs)
     with pymc_estimator.model:
-        trace1 = pm.load_trace(".trace")
+        trace1 = pm.load_trace(".pymc_4.trace")
         trace2 = pm.sample(trace=trace1, **sample_kwargs)
         posterior_predictive = pm.sample_posterior_predictive(trace=trace2)
         inference_data = az.from_pymc3(trace=trace2, posterior_predictive=posterior_predictive, save_warmup=True)
@@ -143,18 +146,34 @@ def build_model(
 
 
 if __name__ == "__main__":
-    run_id = datetime.now().strftime("%Y-%m-%d_%H%M")
+    run_id = ""
 
-    sim = create_simulator(simulation_length=250)
-    (t, X), = sim.run()
-    np.save(f"{PATH}/pymc3_data/simulation_{run_id}.npy", X)
-    simulation_params = {
-        "model_a": sim.model.a.tolist(),
-        "coupling_a": sim.coupling.a[0],
-        "nsig": sim.integrator.noise.nsig[0]
-    }
-    with open(f"{PATH}/pymc3_data/{run_id}_sim_params.json", "w") as f:
-        json.dump(simulation_params, f)
+    with open(f"{PATH}/pymc3_data/{run_id}_tuning_model.pkl", "rb") as buff:
+        data = pickle.load(buff)
 
-    _ = build_model(sim=sim, observation=X, save_file=f"{PATH}/pymc3_data/{run_id}",
-                    draws=250, tune=0, cores=4, target_accept=0.95, max_treedepth=15, discard_tuned_samples=False)
+    model = data["model"]
+
+    with model:
+        trace = pm.load_trace("")
+        trace2 = pm.sample(trace=trace, draws=250, tune=50, cores=4, target_accept=0.95, max_treedepth=10, discard_tuned_samples=False, start=trace.point(-1))
+        posterior_predictive = pm.sample_posterior_predictive(trace=trace2)
+        inference_data = az.from_pymc3(trace=trace2, posterior_predictive=posterior_predictive, save_warmup=True)
+        inference_summary = az.summary(inference_data)
+
+    # run_id = datetime.now().strftime("%Y-%m-%d_%H%M")
+    # run_id_load = "2023-02-28_1012"
+    #
+    # sim = create_simulator(simulation_length=250)
+    # X = np.load(f"{PATH}/pymc3_data/simulation_{run_id_load}.npy")
+    # np.save(f"{PATH}/pymc3_data/simulation_{run_id}.npy", X)
+    # with open(f"pymc3_data/{run_id_load}_sim_params.json", "r") as f:
+    #     simulation_params = json.load(f)
+    #     f.close()
+    # sim.model.a = np.array(simulation_params["model_a"])
+    # print(sim.model.a)
+    #
+    # with open(f"{PATH}/pymc3_data/{run_id}_sim_params.json", "w") as f:
+    #     json.dump(simulation_params, f)
+    #
+    # _ = build_model(sim=sim, observation=X, save_file=f"{PATH}/pymc3_data/{run_id}",
+    #                 draws=100, tune=0, cores=2, target_accept=0.95, max_treedepth=10, discard_tuned_samples=False)

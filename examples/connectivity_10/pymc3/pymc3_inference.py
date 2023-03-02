@@ -32,7 +32,7 @@ def create_simulator(simulation_length: float):
     conn.configure()
 
     sim = simulator.Simulator(
-        model=models.oscillator.Generic2dOscillator(a=np.random.normal(loc=1.75, scale=0.75, size=(10,))),
+        model=models.oscillator.Generic2dOscillator(a=np.random.normal(loc=1.5, scale=0.75, size=(10,))),
         connectivity=conn,
         coupling=coupling.Difference(),
         integrator=integrators.EulerStochastic(
