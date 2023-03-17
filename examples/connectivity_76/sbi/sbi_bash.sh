@@ -11,6 +11,7 @@
 #SBATCH --partition=normal
 #SBATCH --constraint=mc
 #SBATCH --hint=multithread
+#SBATCH --mem=120GB
 #SBATCH --output=sbi_data/slurm.out
 
 source ~/.bashrc

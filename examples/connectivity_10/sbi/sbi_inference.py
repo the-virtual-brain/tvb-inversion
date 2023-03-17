@@ -13,6 +13,7 @@ import tvb_inversion.base.sim_seq
 from tvb_inversion.sbi.prior import PytorchPrior
 from tvb_inversion.sbi.stats_model import SBIModel
 from tvb_inversion.sbi import EstimatorSBI
+from tvb_inversion.base.sim_seq import SimSeq
 
 PATH = os.path.dirname(__file__)
 np.random.seed(42)
@@ -20,7 +21,7 @@ np.random.seed(42)
 
 def create_simulator(simulation_length: float):
     conn = connectivity.Connectivity()
-    #conn.weights = np.ones((10, 10)) - np.eye(10)
+    # conn.weights = np.ones((10, 10)) - np.eye(10)
     weights = np.random.normal(loc=1.0, scale=0.25, size=(10, 10))
     np.fill_diagonal(weights, 0.0)
     conn.weights = weights
@@ -59,9 +60,14 @@ def run_seq(sim_seq: tvb_inversion.base.sim_seq.SimSeq):
     def job(i, sim_):
         (t, y), = sim_.configure().run()
 
-        eps = theta[i, -1]
-        # y_obs = y.flatten() + np.random.multivariate_normal(mean=np.zeros(y.size), cov=np.diag(eps * np.ones(y.size)))
-        y_obs = y.flatten()
+        amplitude = theta[i, -2]
+        offset = theta[i, -1]
+        # noise = theta[i, -1]
+
+        y_hat = amplitude * y.flatten() + offset
+        y_obs = y_hat
+        # y_obs = y_hat + np.random.multivariate_normal(mean=np.zeros(y_hat.size), cov=np.diag(noise * np.ones(y_hat.size)))
+        # y_obs = y.flatten()
         return y_obs
 
     results = pool(job(i, sim_) for i, sim_ in tqdm(enumerate(sim_seq)))
@@ -82,7 +88,9 @@ if __name__ == "__main__":
         "model_a": sim.model.a.tolist(),
         "coupling_a": sim.coupling.a[0],
         "nsig": sim.integrator.noise.nsig[0],
-        "measurement_noise": 0.0
+        "amplitude": 1.0,
+        "offset": 0.0,
+        # "noise": 0.0
     }
     loc = np.log(sim_params["nsig"] ** 2 / np.sqrt(sim_params["nsig"] ** 2 + (0.5 * sim.integrator.noise.nsig[0]) ** 2))
     scale = np.log(1 + (0.5 * sim.integrator.noise.nsig[0]) ** 2 / sim_params["nsig"] ** 2)
@@ -105,8 +113,15 @@ if __name__ == "__main__":
     dist, _, _ = process_prior(param_dists)
 
     correct_prior = PytorchPrior(param_names, dist)
-    sbi_model = SBIModel(sim, correct_prior)
-    correct_seq = sbi_model.generate_sim_seq(int(0.2 * len_data))
+    values = correct_prior.sample_to_numpy(int(0.2 * len_data))
+    values = [[np.r_[val] for val in row] for row in values]
+    values = [vals + [np.array([sim_params["amplitude"]]), np.array([sim_params["offset"]])] for vals in values]
+    correct_seq = SimSeq(
+        template=sim,
+        params=[f"model.a[{i}]" for i in range(len(sim.model.a))] + [
+            "coupling.a", "integrator.noise.nsig", "observation_amplitude", "observation_offset"],  # "observation_noise"],
+        values=values
+    )
 
     test_simulations = run_seq(sim_seq=correct_seq)
     test_simulations = np.asarray(test_simulations, dtype=np.float32)
@@ -118,13 +133,16 @@ if __name__ == "__main__":
         "model_a": 1.5 * np.ones(sim.model.a.shape),
         "coupling_a": sim.coupling.a[0] + 0.5 * sim.coupling.a[0],
         "nsig": sim.integrator.noise.nsig[0] + 0.5 * sim.integrator.noise.nsig[0],
-        # "measurement_noise": 0.0
+        "amplitude": 1.0,
+        "offset": 0.0,
+        # "noise": 0.0
     }
     loc = np.log(inference_params["nsig"] ** 2 / np.sqrt(inference_params["nsig"] ** 2 + (def_std * sim.integrator.noise.nsig[0]) ** 2))
     scale = np.log(1 + (def_std * sim.integrator.noise.nsig[0]) ** 2 / inference_params["nsig"] ** 2)
 
     # param_names = ["model.a", "coupling.a", "integrator.noise.nsig" , "measurement_noise"]
-    param_names = [f"model.a[{i}]" for i in range(len(sim.model.a))] + ["coupling.a", "integrator.noise.nsig"]
+    param_names = [f"model.a[{i}]" for i in range(len(sim.model.a))] + [
+        "coupling.a", "integrator.noise.nsig", "observation_amplitude", "observation_offset"]  # , "observation_noise"]
     param_dists = [
         torch.distributions.Normal(
             loc=torch.Tensor([inference_params["model_a"].tolist()[i]]),
@@ -138,7 +156,15 @@ if __name__ == "__main__":
             loc=torch.Tensor([loc]),
             scale=torch.Tensor([scale])
         ),
-        # torch.distributions.HalfNormal(torch.Tensor([0.1]))
+        torch.distributions.Normal(
+            loc=torch.Tensor([inference_params["amplitude"]]),
+            scale=torch.Tensor([def_std * inference_params["amplitude"]])
+        ),
+        torch.distributions.Normal(
+            loc=torch.Tensor([inference_params["offset"]]),
+            scale=torch.Tensor([0.5])
+        ),
+        # torch.distributions.HalfNormal(torch.Tensor([0.5]))
         ]
     #param_dists = [
     #    torch.distributions.Uniform(
@@ -171,8 +197,8 @@ if __name__ == "__main__":
 
     # posterior_samples = posterior.sample((2000, ), X.flatten())
     posterior_samples = []
-    for x in test_simulations:
-        posterior_samples_ = posterior.sample((2000, ), x)
+    for x in tqdm(test_simulations):
+        posterior_samples_ = posterior.sample((500, ), x)
         posterior_samples.append(np.asarray(posterior_samples_))
     posterior_samples = np.asarray(posterior_samples)
 

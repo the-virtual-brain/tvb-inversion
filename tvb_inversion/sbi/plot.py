@@ -20,7 +20,7 @@ def plot_posterior_samples_model_parameters(dataframe, simulation_params):
 
 def plot_posterior_samples_global_parameters(dataframe, simulation_params):
 
-    fig, axes = plt.subplots(ncols=1, nrows=len(dataframe.columns), figsize=(len(dataframe.columns)*5, 15))
+    fig, axes = plt.subplots(ncols=1, nrows=len(dataframe.columns), figsize=(15, 5 * len(dataframe.columns)))
     label = "ground truth"
     for i, key in enumerate(dataframe.columns):
         ax = axes.reshape(-1)[i]
