@@ -8,7 +8,7 @@ import pymc3 as pm
 from tvb.simulator.lab import *
 from tvb_inversion.pymc3.inference import EstimatorPYMC
 from tvb_inversion.pymc3.prior import Pymc3Prior
-from tvb_inversion.pymc3.stats_model_builder import StochasticPymc3ModelBuilder
+from tvb_inversion.pymc3.stats_model_builder import StochasticPymc3ModelBuilder, DeterministicPymc3ModelBuilder
 from tvb_inversion.base.observation_models import linear
 from tvb_inversion.pymc3.examples import (
     default_model_builders,
@@ -93,8 +93,8 @@ def build_model(
         nsig = pm.Deterministic(
             name="nsig", var=inference_params["nsig"] + def_std * sim.integrator.noise.nsig[0] * nsig_star)
 
-        dWt_star = pm.Normal(
-            name="dWt_star", mu=0.0, sd=1.0, shape=(observation.shape[0], sim.model.nvar, sim.connectivity.number_of_regions))
+        # dWt_star = pm.Normal(
+        #     name="dWt_star", mu=0.0, sd=1.0, shape=(observation.shape[0], sim.model.nvar, sim.connectivity.number_of_regions))
 
         amplitude_star = pm.Normal(
             name="amplitude_star", mu=0.0, sd=1.0)
@@ -106,20 +106,20 @@ def build_model(
         offset = pm.Deterministic(
             name="offset", var=def_std * offset_star)
 
-        measurement_noise_star = pm.HalfNormal(
-            name="measurement_noise_star", sd=1.0)
-        measurement_noise = pm.Deterministic(
-            name="measurement_noise", var=def_std * measurement_noise_star)
+        # measurement_noise_star = pm.HalfNormal(
+        #     name="measurement_noise_star", sd=1.0)
+        # measurement_noise = pm.Deterministic(
+        #     name="measurement_noise", var=def_std * measurement_noise_star)
 
     prior = Pymc3Prior(
         model=model,
-        names=["model.a", "coupling.a", "x_init", "integrator.noise.nsig", "dWt_star",
-               "observation.amplitude", "observation.offset", "measurement_noise"],
-        dist=[model_a, coupling_a, x_init, nsig, dWt_star,
-              amplitude, offset, measurement_noise]
+        names=["model.a", "coupling.a", "x_init", "integrator.noise.nsig",
+               "observation.amplitude", "observation.offset"],
+        dist=[model_a, coupling_a, x_init, nsig,
+              amplitude, offset]
     )
 
-    model_builder = StochasticPymc3ModelBuilder(
+    model_builder = DeterministicPymc3ModelBuilder(
         sim=sim, params=prior, observation_fun=linear, observation=observation[:, :, :, 0])
     model_builder.compose_model()
     pymc_model = model_builder.build()
@@ -141,8 +141,10 @@ if __name__ == "__main__":
     run_id = datetime.now().strftime("%Y-%m-%d_%H%M")
 
     sim = create_simulator(simulation_length=250)
+    _ = sim.run()
     (t, X), = sim.run()
     np.save(f"{PATH}/pymc3_data/simulation_{run_id}.npy", X)
+
     simulation_params = {
         "model_a": sim.model.a.tolist(),
         "coupling_a": sim.coupling.a[0],
@@ -152,4 +154,4 @@ if __name__ == "__main__":
         json.dump(simulation_params, f)
 
     _ = build_model(sim=sim, observation=X, save_file=f"{PATH}/pymc3_data/{run_id}",
-                    draws=250, tune=250, cores=4, target_accept=0.95, max_treedepth=15, discard_tuned_samples=False)
+                    draws=500, tune=500, cores=4, target_accept=0.95, max_treedepth=15, discard_tuned_samples=False)

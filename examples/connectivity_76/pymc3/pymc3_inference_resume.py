@@ -6,6 +6,8 @@ import numpy as np
 import pymc3 as pm
 import arviz as az
 import pickle
+from pymc3.step_methods.hmc import quadpotential
+from pymc3.backends.base import MultiTrace
 
 from tvb.simulator.lab import *
 from tvb_inversion.pymc3.inference import EstimatorPYMC
@@ -63,7 +65,7 @@ def build_model(
         "coupling_a": sim.coupling.a[0],  # + 0.5 * sim.coupling.a[0],
         "nsig": sim.integrator.noise.nsig[0],  # + 0.5 * sim.integrator.noise.nsig[0]
     }
-    
+
     model = pm.Model()
     with model:
         model_a_star = pm.Normal(
@@ -146,7 +148,7 @@ def build_model(
 
 
 if __name__ == "__main__":
-    run_id = ""
+    run_id = "2023-03-13_1329"
 
     with open(f"{PATH}/pymc3_data/{run_id}_tuning_model.pkl", "rb") as buff:
         data = pickle.load(buff)
@@ -154,11 +156,62 @@ if __name__ == "__main__":
     model = data["model"]
 
     with model:
-        trace = pm.load_trace("")
-        trace2 = pm.sample(trace=trace, draws=250, tune=50, cores=4, target_accept=0.95, max_treedepth=10, discard_tuned_samples=False, start=trace.point(-1))
+        # trace = data["trace"]
+        trace = pm.load_trace(".pymc_1.trace/")
+
+        chain1 = trace._straces[0][2:].samples
+        chain2 = trace._straces[1][2:].samples
+        chain3 = trace._straces[2][2:].samples
+        # chain4 = trace._straces[3][:].samples
+
+        # cov_est = pm.trace_cov(trace)
+        rtrace = MultiTrace([trace._straces[0][2:], trace._straces[1][2:], trace._straces[2][2:]])
+        cov_est = pm.trace_cov(rtrace)
+        n = cov_est.shape[0]
+
+        # mean = model.dict_to_array(trace[-25])
+        # mean = np.asarray([model.dict_to_array(trace[i]) for i in range(len(trace))]).mean(axis=0)
+        diverging1 = trace._straces[0]._get_sampler_stats(varname="diverging", sampler_idx=0, burn=0, thin=1)
+        mean1 = np.asarray([model.dict_to_array(trace._straces[0][i]) for i in np.where(diverging1==False)[0]]).mean(axis=0)
+
+        diverging2 = trace._straces[1]._get_sampler_stats(varname="diverging", sampler_idx=0, burn=0, thin=1)
+        mean2 = np.asarray([model.dict_to_array(trace._straces[1][i]) for i in np.where(diverging2==False)[0]]).mean(axis=0)
+
+        diverging3 = trace._straces[2]._get_sampler_stats(varname="diverging", sampler_idx=0, burn=0, thin=1)
+        mean3 = np.asarray([model.dict_to_array(trace._straces[2][i]) for i in np.where(diverging3==False)[0]]).mean(axis=0)
+
+        # diverging4 = trace._straces[3]._get_sampler_stats(varname="diverging", sampler_idx=0, burn=0, thin=1)
+        # mean4 = np.asarray([model.dict_to_array(trace._straces[3][i]) for i in np.where(diverging4==False)[0]]).mean(axis=0)
+        # mean4 = np.zeros(n)
+
+        mean = np.vstack((mean1, mean2, mean3)).mean(axis=0)
+        var = np.diag(cov_est)
+        potential = quadpotential.QuadPotentialDiagAdapt(n, mean, var, 1)
+
+        step_size = trace.get_sampler_stats("step_size")[np.where(trace.get_sampler_stats("diverging")==False)[0].tolist()].mean()
+        step_scale = step_size  * (n ** 0.25)
+
+        # start = [trace._straces[i][-1] for i in trace.chains]
+        start1 = {var: val.mean(axis=0) for var, val in chain1.items()}
+        start2 = {var: val.mean(axis=0) for var, val in chain2.items()}
+        start3 = {var: val.mean(axis=0) for var, val in chain3.items()}
+        # start4 = {var: val.mean(axis=0) for var, val in chain4.items()}
+        start = [start1, start2, start3]
+
+        nuts = pm.NUTS(
+            potential=potential, target_accept=0.95, step_scale=step_scale, max_treedepth=10, adapt_step_size=True)
+        nuts.tune = True
+
+        trace2 = pm.sample(
+            step=nuts, draws=500, tune=50, cores=3, start=start, discard_tuned_samples=False)
+        # _ = pm.save_trace(trace2)
+
         posterior_predictive = pm.sample_posterior_predictive(trace=trace2)
         inference_data = az.from_pymc3(trace=trace2, posterior_predictive=posterior_predictive, save_warmup=True)
         inference_summary = az.summary(inference_data)
+
+        inference_data.to_netcdf(filename=f"{PATH}/pymc3_data/{run_id}-3_idata.nc", compress=False)
+        inference_summary.to_json(path_or_buf=f"{PATH}/pymc3_data/{run_id}-3_isummary.json")
 
     # run_id = datetime.now().strftime("%Y-%m-%d_%H%M")
     # run_id_load = "2023-02-28_1012"
