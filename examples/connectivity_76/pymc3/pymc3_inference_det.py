@@ -56,9 +56,9 @@ def build_model(
 ):
     def_std = 0.5
     inference_params = {
-        "model_a": sim.model.a,
-        # "model_a": 1.5 * np.ones(sim.model.a.shape),
-        "coupling_a": sim.coupling.a[0],  # + 0.5 * sim.coupling.a[0],
+        # "model_a": sim.model.a,
+        "model_a": 1.5 * np.ones(sim.model.a.shape),
+        "coupling_a": sim.coupling.a[0] + 0.5 * sim.coupling.a[0],
         "nsig": sim.integrator.noise.nsig[0],  # + 0.5 * sim.integrator.noise.nsig[0]
     }
 
@@ -134,7 +134,7 @@ def build_model(
             inference_params["model_a"] = inference_params["model_a"].tolist()
             json.dump(inference_params, f)
 
-    return trace
+    return inference_data, inference_summary
 
 
 if __name__ == "__main__":
@@ -154,4 +154,4 @@ if __name__ == "__main__":
         json.dump(simulation_params, f)
 
     _ = build_model(sim=sim, observation=X, save_file=f"{PATH}/pymc3_data/{run_id}",
-                    draws=500, tune=500, cores=4, target_accept=0.95, max_treedepth=15, discard_tuned_samples=False)
+                    draws=750, tune=750, cores=4, target_accept=0.95, max_treedepth=15, discard_tuned_samples=False)

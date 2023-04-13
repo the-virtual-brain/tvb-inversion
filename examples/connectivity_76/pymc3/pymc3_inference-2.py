@@ -142,7 +142,7 @@ def build_model(
             inference_params["model_a"] = inference_params["model_a"].tolist()
             json.dump(inference_params, f)
 
-    return trace
+    return inference_data, inference_summary
 
 
 if __name__ == "__main__":
