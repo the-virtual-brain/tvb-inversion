@@ -131,3 +131,5 @@ dmypy.json
 .idea/
 
 sbi-logs
+
+.DS_Store
