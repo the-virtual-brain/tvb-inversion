@@ -1,3 +1,4 @@
+"""This module contains plotting functions for pymc results. However, they are little general and very problem specific. Generic plotting functions will implemented later."""
 from typing import Dict
 
 import numpy as np
@@ -5,10 +6,10 @@ from matplotlib import pyplot as plt
 import seaborn as sns
 
 
-def plot_posterior_samples_model_parameters(dataframe, simulation_params):
+def plot_posterior_samples_model_parameters(dataframe, simulation_params, save_fig=None, index=None):
 
-    fig = plt.figure(figsize=(15, 10))
-    ax = sns.violinplot(data=dataframe, bw=.1)
+    fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(15, 10))
+    sns.violinplot(data=dataframe, bw=.1, ax=ax)
     plt.setp(ax.collections, alpha=.5)
     label = "ground truth"
     if isinstance(simulation_params, list):
@@ -17,18 +18,26 @@ def plot_posterior_samples_model_parameters(dataframe, simulation_params):
             label = "_nolegend_"
     else:
         plt.axhline(simulation_params, xmin=0.0, linestyle="--", linewidth=2, color="black", label=label)
-    plt.title("model_a", fontsize=16)
-    plt.tick_params(axis="both", labelsize=16)
-    plt.legend(fontsize=16)
-    plt.show()
+    plt.ylabel(r"$a_{model}$", fontsize=18)
+    plt.tick_params(axis="both", labelsize=18)
+    plt.legend(fontsize=18)
+
+    if save_fig:
+        if index:
+            plt.savefig(save_fig + f"posterior_samples_model_parameters-{index}.png", dpi=600, bbox_inches="tight")
+        else:
+            plt.savefig(save_fig + "posterior_samples_model_parameters.png", dpi=600, bbox_inches="tight")
 
 
-def plot_posterior_samples_global_parameters(dataframe, simulation_params):
+def plot_posterior_samples_global_parameters(dataframe, simulation_params, save_fig=None):
 
-    fig, axes = plt.subplots(ncols=1, nrows=len(dataframe.columns), figsize=(len(dataframe.columns)*5, 15))
+    fig, axes = plt.subplots(ncols=1, nrows=len(dataframe.columns), figsize=(15, len(dataframe.columns) * 5))
     label = "ground truth"
     for i, key in enumerate(dataframe.columns):
-        ax = axes.reshape(-1)[i]
+        try:
+            ax = axes.reshape(-1)[i]
+        except AttributeError:
+            ax = axes
         sns.violinplot(y=dataframe[key], bw=.1, ax=ax)
         plt.setp(ax.collections, alpha=.5)
         try:
@@ -36,19 +45,34 @@ def plot_posterior_samples_global_parameters(dataframe, simulation_params):
         except KeyError:
             ax.axhline(0.0, linestyle="--", linewidth=2, color="black", label=label)
         if i == 0:
-            ax.legend(fontsize=16)
+            ax.legend(fontsize=18)
         label = "_nolegend_"
-        ax.tick_params(axis="both", labelsize=16)
-        ax.set_ylabel(key, size=16)
-    plt.show()
+        ax.tick_params(axis="both", labelsize=18)
+
+        if key == "coupling_a":
+            ylabel = r"$a_{coupling}$"
+        elif key == "amplitude":
+            ylabel = r"$m_{obs}$"
+        elif key == "offset":
+            ylabel = r"$n_{obs}$"
+        elif key == "measurement_noise":
+            ylabel = r"$v_{obs}$"
+        else:
+            ylabel = key
+        ax.set_ylabel(ylabel, size=18)
+
+    if save_fig:
+        plt.savefig(save_fig + "posterior_samples_global_parameters.png", dpi=600, bbox_inches="tight")
 
 
-def posterior_pairplot(dataframe, size):
+def posterior_pairplot(dataframe, size, save_fig=None):
 
-    with sns.plotting_context(rc={"axes.labelsize":20}):
-        ax = sns.pairplot(data=dataframe, kind="hist", height=size)  # , y_vars=["coupling_a"], x_vars=[k for k, _ in data.items() if "model_a" in k])
-    ax.tick_params(axis="both", labelsize=20)
-    plt.show()
+    with sns.plotting_context(rc={"axes.labelsize": 40}):
+        ax = sns.pairplot(data=dataframe, kind="hist", height=size, aspect=1, corner=True)  # , y_vars=["coupling_a"], x_vars=[k for k, _ in data.items() if "model_a" in k])
+    ax.tick_params(axis="both", labelsize=36)
+
+    if save_fig:
+        plt.savefig(save_fig + "pairplot.png", dpi=600, bbox_inches="tight")
 
 
 def plot_posterior_samples(inference_data, init_params: Dict[str, float], save: bool = False):
