@@ -1,4 +1,4 @@
-import pymc3 as pm
+import pymc as pm
 from tvb_inversion.base.stats_model import StatisticalModel
 from tvb_inversion.pymc3.prior import Pymc3Prior
 from tvb.simulator.simulator import Simulator

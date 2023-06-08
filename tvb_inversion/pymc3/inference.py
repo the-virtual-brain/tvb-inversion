@@ -1,9 +1,9 @@
 from typing import Dict, Optional, Union, Callable, List
 
 import numpy as np
-import pymc3 as pm
-import theano
-import theano.tensor as tt
+import pymc as pm
+import pytensor
+import pytensor.tensor as pyt
 import arviz as az
 import matplotlib.pyplot as plt
 
@@ -21,8 +21,8 @@ class EstimatorPYMC(Estimator):
         super().__init__(stats_model)
 
         self.trace = None
-        self.posterior_predictive = None
         self.inference_data = None
+        self.posterior_predictive = None
         self.inference_summary = None
 
     @property
@@ -31,15 +31,14 @@ class EstimatorPYMC(Estimator):
 
     def sample(self, **kwargs):
         with self.model:
-            trace = pm.sample(**kwargs)
-        self.trace = trace
-        return self.trace
+            inference_data = pm.sample(**kwargs)
+        self.inference_data = inference_data
+        return self.inference_data
 
     def sample_posterior_predictive(self):
         with self.model:
-            posterior_predictive = pm.sample_posterior_predictive(trace=self.trace)
-        self.posterior_predictive = posterior_predictive
-        return self.posterior_predictive
+            self.inference_data = pm.sample_posterior_predictive(trace=self.inference_data, extend_inferencedata=True)
+        return self.inference_data
 
     def get_inference_data(self):
         with self.model:
@@ -51,8 +50,8 @@ class EstimatorPYMC(Estimator):
         self.inference_summary = az.summary(self.inference_data)
         return self.inference_summary
 
-    # def get_prior_std(self):
-    #     pass
+    def get_prior_std(self):
+        raise NotImplementedError
 
     def get_posterior_mean(self, params: List[str]):
         posterior = np.asarray([self.inference_data.posterior[param].values.reshape((self.inference_data.posterior[param].values.size,)) for param in params])
@@ -67,9 +66,8 @@ class EstimatorPYMC(Estimator):
         loo = az.loo(self.inference_data)
         return dict(WAIC=waic.waic, LOO=loo.loo)
 
-    def run_inference(self, **kwargs):
-        self.trace = self.sample(**kwargs)
-        self.posterior_predictive = self.sample_posterior_predictive()
-        self.inference_data = self.get_inference_data()
+    def run_inference(self, **sample_kwargs):
+        self.inference_data = self.sample(**sample_kwargs)
+        self.inference_data = self.sample_posterior_predictive()
         self.inference_summary = self.get_inference_summary()
         return self.inference_data, self.inference_summary

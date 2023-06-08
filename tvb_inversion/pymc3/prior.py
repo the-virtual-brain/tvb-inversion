@@ -1,6 +1,6 @@
 from typing import List, Union
-from pymc3 import Model
-from pymc3.model import FreeRV, TransformedRV, DeterministicWrapper
+from pymc import Model
+# from pymc.model import FreeRV, TransformedRV, DeterministicWrapper
 from tvb_inversion.base.prior import Prior
 
 
@@ -9,7 +9,8 @@ class Pymc3Prior(Prior):
     model: Model
 
     def __init__(self, model: Model, names: List[str],
-                 dist: List[Union[FreeRV, TransformedRV, DeterministicWrapper]]):
+                 dist: List):
+                 # dist: List[Union[FreeRV, TransformedRV, DeterministicWrapper]]):
         self.model = model
         super().__init__(names, dist)
         self.dict = self.to_dict()
@@ -45,4 +46,4 @@ class Pymc3Prior(Prior):
         return self.get_params_from_path("monitors[%d]" % id)
 
     def get_observation_model_params(self):
-        return self.get_params_from_path("observation")
+        return self.get_params_from_path("observation.")
