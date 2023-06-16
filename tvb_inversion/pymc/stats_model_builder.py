@@ -5,18 +5,18 @@ import pytensor
 import pytensor.tensor as pyt
 from tvb_inversion.base.stats_model import StatisticalModel
 from tvb_inversion.base.observation_models import linear
-from tvb_inversion.pymc3.prior import Pymc3Prior
-from tvb_inversion.pymc3.stats_model import Pymc3Model
+from tvb_inversion.pymc.prior import PymcPrior
+from tvb_inversion.pymc.stats_model import PymcModel
 from tvb.simulator.simulator import Simulator
 from tvb.simulator.backend.pytensor import PytensorBackend
 
 
-class Pymc3ModelBuilder(StatisticalModel):
+class PymcModelBuilder(StatisticalModel):
 
     def __init__(
             self,
             sim: Simulator,
-            params: Optional[Pymc3Prior] = None,
+            params: Optional[PymcPrior] = None,
             model: Optional[pm.Model] = None,
             observation_fun: Optional[Callable] = None,
             observation: Optional[np.ndarray] = None,
@@ -43,14 +43,14 @@ class Pymc3ModelBuilder(StatisticalModel):
         self.mfun: Optional[Callable] = None
 
     def configure(self):
-        assert isinstance(self.params, Pymc3Prior)
+        assert isinstance(self.params, PymcPrior)
         assert isinstance(self.model, pm.Model)
 
     def _build_or_append_prior(self, names, dist):
         if self.params:
             self.params.append(names, dist)
         else:
-            self.params = Pymc3Prior(names=names, dist=dist, model=self.model)
+            self.params = PymcPrior(names=names, dist=dist, model=self.model)
         return self.params
 
     def build_dfun(self):
@@ -146,14 +146,14 @@ class Pymc3ModelBuilder(StatisticalModel):
                                   shape=self.obs.shape, observed=self.obs)
 
     def build(self):
-        return Pymc3Model(self.sim, self.params)
+        return PymcModel(self.sim, self.params)
 
 
-class DeterministicPymc3ModelBuilder(Pymc3ModelBuilder):
+class DeterministicPymcModelBuilder(PymcModelBuilder):
     pass
 
 
-class StochasticPymc3ModelBuilder(DeterministicPymc3ModelBuilder):
+class StochasticPymcModelBuilder(DeterministicPymcModelBuilder):
 
     def build_nfun(self):
         # TODO: Implement this with theano_backend for Additive white noise!:
@@ -199,12 +199,12 @@ class StochasticPymc3ModelBuilder(DeterministicPymc3ModelBuilder):
         return super().scheme(x_prev, *params) + dWt
 
 
-class DefaultDeterministicPymc3ModelBuilder(DeterministicPymc3ModelBuilder):
+class DefaultDeterministicPymcModelBuilder(DeterministicPymcModelBuilder):
 
     def __init__(
             self,
             sim: Simulator,
-            params: Optional[Pymc3Prior] = None,
+            params: Optional[PymcPrior] = None,
             model: Optional[pm.Model] = None,
             observation: Optional[np.ndarray] = None,
             n_steps: Optional[int] = None
@@ -249,11 +249,11 @@ class DefaultDeterministicPymc3ModelBuilder(DeterministicPymc3ModelBuilder):
         return self.params
 
 
-class DefaultStochasticPymc3ModelBuilder(StochasticPymc3ModelBuilder, DefaultDeterministicPymc3ModelBuilder):
+class DefaultStochasticPymcModelBuilder(StochasticPymcModelBuilder, DefaultDeterministicPymcModelBuilder):
 
     def set_noise(self, def_std=0.1):
         with self.model:
-            nsig_star = pm.HalfNormal(name="nsig_star", sigma=1.0)
+            nsig_star = pm.Normal(name="nsig_star", mu=0.0, sigma=1.0)
             nsig = pm.Deterministic(name="nsig", var=self.sim.integrator.noise.nsig[0] * (1.0 + def_std * nsig_star))
             dWt_star = pm.Normal(name="dWt_star", mu=0.0, sigma=1.0, shape=(self.obs.shape[0], *self.sim.initial_conditions.shape[1:-1]))
 

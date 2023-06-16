@@ -8,14 +8,14 @@ import arviz as az
 import matplotlib.pyplot as plt
 
 from tvb_inversion.base.inference import Estimator
-from tvb_inversion.pymc3.stats_model import Pymc3Model
+from tvb_inversion.pymc.stats_model import PymcModel
 
 
 class EstimatorPYMC(Estimator):
 
     def __init__(
             self,
-            stats_model: Pymc3Model
+            stats_model: PymcModel
     ):
 
         super().__init__(stats_model)
@@ -54,17 +54,23 @@ class EstimatorPYMC(Estimator):
         raise NotImplementedError
 
     def get_posterior_mean(self, params: List[str]):
-        posterior = np.asarray([self.inference_data.posterior[param].values.reshape((self.inference_data.posterior[param].values.size,)) for param in params])
-        return posterior.mean(axis=1)
+        posterior = np.concatenate(
+            [self.inference_data.posterior[param].values.reshape(
+                -1, self.inference_data.posterior[param].values.shape[-1]) if self.inference_data.posterior[param].values.ndim == 3 else self.inference_data.posterior[param].values.flatten()[..., np.newaxis] for param in
+             params], axis=1)
+        return posterior.mean(axis=0)
 
     def get_posterior_std(self, params: List[str]):
-        posterior = np.asarray([self.inference_data.posterior[param].values.reshape((self.inference_data.posterior[param].values.size,)) for param in params])
-        return posterior.std(axis=1)
+        posterior = np.concatenate(
+            [self.inference_data.posterior[param].values.reshape(
+                -1, self.inference_data.posterior[param].values.shape[-1]) if self.inference_data.posterior[param].values.ndim == 3 else self.inference_data.posterior[param].values.flatten()[..., np.newaxis] for param in
+             params], axis=1)
+        return posterior.std(axis=0)
 
     def information_criteria(self):
         waic = az.waic(self.inference_data)
         loo = az.loo(self.inference_data)
-        return dict(WAIC=waic.waic, LOO=loo.loo)
+        return waic, loo
 
     def run_inference(self, **sample_kwargs):
         self.inference_data = self.sample(**sample_kwargs)

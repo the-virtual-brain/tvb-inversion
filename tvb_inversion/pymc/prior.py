@@ -4,7 +4,7 @@ from pymc import Model
 from tvb_inversion.base.prior import Prior
 
 
-class Pymc3Prior(Prior):
+class PymcPrior(Prior):
 
     model: Model
 

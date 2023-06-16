@@ -1,7 +1,7 @@
 import unittest
 from typing import Callable
 
-from tvb_inversion.pymc3.examples import (
+from tvb_inversion.pymc.examples import (
     create_2node_simulator,
     default_model_builders,
     uninformative_model_builders,
