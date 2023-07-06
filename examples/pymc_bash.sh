@@ -1,6 +1,6 @@
 
 #!/bin/bash -l
-#SBATCH --job-name="2node-pymc"
+#SBATCH --job-name="10node-pymc"
 #SBATCH --account="ich012"
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=name@domain
