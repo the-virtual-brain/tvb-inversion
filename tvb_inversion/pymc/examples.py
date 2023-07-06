@@ -14,6 +14,7 @@ from tvb_inversion.pymc.inference import EstimatorPYMC
 
 np.random.seed(42)
 
+
 def create_2node_simulator(simulation_length: float):
     conn = connectivity.Connectivity()
     conn.weights = np.array([[0., 1.], [1., 0.]])
@@ -87,12 +88,12 @@ def default_model_builders(
     model = pm.Model()
     with model:
         model_a_star = pm.Normal(
-            name="model_a_star", mu=0.0, sd=1.0, shape=sim.model.a.shape)
+            name="model_a_star", mu=0.0, sigma=1.0, shape=sim.model.a.shape)
         model_a = pm.Deterministic(
             name="model_a", var=sim.model.a * (1.0 + def_std * model_a_star))
 
         coupling_a_star = pm.Normal(
-            name="coupling_a_star", mu=0.0, sd=1.0)
+            name="coupling_a_star", mu=0.0, sigma=1.0)
         coupling_a = pm.Deterministic(
             name="coupling_a", var=sim.coupling.a[0].item() * (1.0 + def_std * coupling_a_star))
 
@@ -222,7 +223,7 @@ def custom_model_builders(
         dWt_star = pm.Normal(
             name="dWt_star", mu=0.0, sigma=1.0, shape=(observation.shape[0], sim.model.nvar, sim.connectivity.number_of_regions))
         dWt = pm.Deterministic(
-            name="dWt", var=tt.sqrt(2.0 * nsig * sim.integrator.dt) * dWt_star)
+            name="dWt", var=pyt.sqrt(2.0 * nsig * sim.integrator.dt) * dWt_star)
 
         amplitude_star = pm.Normal(
             name="amplitude_star", mu=0.0, sigma=1.0)
@@ -250,26 +251,26 @@ def custom_model_builders(
     pymc_model = PymcModel(sim=sim, params=prior)
 
     def create_backend_funs(sim: simulator.Simulator):
-        # Create theano backend functions
+        # Create pytensor backend functions
         template_dfun = """
                    import pytensor
                    import pytensor.tensor as pyt
                    import numpy as np
-                   <%include file="theano-dfuns.py.mako"/>
+                   <%include file="pytensor-dfuns.py.mako"/>
                    """
-        dfun = TheanoBackend().build_py_func(
-            template_source=template_dfun, content=dict(sim=sim, mparams=list(self.params.get_model_params().keys())), name="dfuns", print_source=True)
+        dfun = PytensorBackend().build_py_func(
+            template_source=template_dfun, content=dict(sim=sim, mparams=list(prior.get_model_params().keys())), name="dfuns", print_source=True)
 
         template_cfun = f"""
                    import pytensor
                    import pytensor.tensor as pyt
                    import numpy as np
                    n_node = {sim.connectivity.number_of_regions}
-                   <%include file="theano-coupling.py.mako"/>
+                   <%include file="pytensor-coupling.py.mako"/>
                    """
 
-        cfun = TheanoBackend().build_py_func(
-            template_source=template_cfun, content=dict(sim=sim, cparams=list(self.params.get_coupling_params().keys())), name="coupling", print_source=True)
+        cfun = PytensorBackend().build_py_func(
+            template_source=template_cfun, content=dict(sim=sim, cparams=list(prior.get_coupling_params().keys())), name="coupling", print_source=True)
 
         return dfun, cfun
 
