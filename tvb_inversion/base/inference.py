@@ -16,7 +16,7 @@ class Estimator:
             stats_model: StatisticalModel,
             ground_truth: Optional[np.ndarray] = None
     ):
-        self.logger = get_logger(self.__class__.__module__)
+        # self.logger = get_logger(self.__class__.__module__)
         self.stats_model = stats_model
         self.ground_truth = ground_truth
 
