@@ -5,18 +5,18 @@ import pytensor
 import pytensor.tensor as pyt
 from tvb_inversion.base.stats_model import StatisticalModel
 from tvb_inversion.base.observation_models import linear
-from tvb_inversion.pymc3.prior import Pymc3Prior
-from tvb_inversion.pymc3.stats_model import Pymc3Model
+from tvb_inversion.pymc.prior import PymcPrior
+from tvb_inversion.pymc.stats_model import PymcModel
 from tvb.simulator.simulator import Simulator
 from tvb.simulator.backend.pytensor import PytensorBackend
 
 
-class Pymc3ModelBuilder(StatisticalModel):
+class PymcModelBuilder(StatisticalModel):
 
     def __init__(
             self,
             sim: Simulator,
-            params: Optional[Pymc3Prior] = None,
+            params: Optional[PymcPrior] = None,
             model: Optional[pm.Model] = None,
             observation_fun: Optional[Callable] = None,
             observation: Optional[np.ndarray] = None,
@@ -43,14 +43,14 @@ class Pymc3ModelBuilder(StatisticalModel):
         self.mfun: Optional[Callable] = None
 
     def configure(self):
-        assert isinstance(self.params, Pymc3Prior)
+        assert isinstance(self.params, PymcPrior)
         assert isinstance(self.model, pm.Model)
 
     def _build_or_append_prior(self, names, dist):
         if self.params:
             self.params.append(names, dist)
         else:
-            self.params = Pymc3Prior(names=names, dist=dist, model=self.model)
+            self.params = PymcPrior(names=names, dist=dist, model=self.model)
         return self.params
 
     def build_dfun(self):
@@ -76,31 +76,69 @@ class Pymc3ModelBuilder(StatisticalModel):
         return PytensorBackend().build_py_func(
             template_source=template, content=dict(sim=self.sim, cparams=list(self.params.get_coupling_params().keys())), name="coupling", print_source=False)
 
-    def build_ifun(self, x_prev, dX):
-        return x_prev + self.sim.integrator.dt * dX
+    def build_ifun(self):
+        template = """
+            import pytensor
+            import pytensor.tensor as pyt
+            import numpy as np
+            <%include file="pytensor-integrate.py.mako"/>
+            """
+        return PytensorBackend().build_py_func(
+            template_source=template, content=dict(sim=self.sim, np=np, pyt=pyt), name='integrate', print_source=False)
 
     def build_mfun(self):
         pass
 
     def build_ofun(self, x_sim):
         with self.model:
-            x_hat = pm.Deterministic(name="x_hat",
-                                     var=self.obs_fun(x_sim, **self.params.get_observation_model_params()))
+            x_hat = pm.Deterministic(
+                name="x_hat", var=self.obs_fun(x_sim, **self.params.get_observation_model_params()))
         return x_hat
+    
+    def build_sim(self, x_init, **kwargs):
 
-    def scheme(self, x_prev, *params):
-        state = pyt.zeros((self.sim.connectivity.horizon, self.sim.model.nvar, self.sim.connectivity.number_of_regions))
-        state = pyt.set_subtensor(state[0], x_prev)
-        state = pyt.transpose(state, axes=[1, 0, 2])
+        template = '<%include file="pytensor-sim.py.mako"/>'
+        content = dict(sim=self.sim, mparams=list(self.params.get_model_params().keys()), cparams=list(self.params.get_coupling_params().keys()), np=np, pyt=pyt)
+        kernel, _ = PytensorBackend().build_py_func(template, content, name="kernel,default_noise", print_source=False)
 
-        cX = pyt.zeros((self.sim.history.n_cvar, self.sim.history.n_node))
-        cX = self.cfun(cX, self.sim.connectivity.weights, state, self.sim.connectivity.delay_indices,
-                       **self.params.get_coupling_params())
+        if not "idelays" in kwargs:
+            if self.sim.connectivity.idelays.any():
+                kwargs["idelays"] = self.sim.connectivity.delay_indices
 
-        dX = pyt.zeros((self.sim.model.nvar, self.sim.history.n_node))
-        dX = self.dfun(dX, x_prev, cX, self.sim.model.spatial_parameter_matrix, **self.params.get_model_params())
+        with self.model:
+            x_sim = kernel(
+                state=x_init,
+                weights=self.sim.connectivity.weights,
+                trace=pyt.zeros((int(self.sim.simulation_length/self.sim.integrator.dt),) + self.sim.initial_conditions[:, :, :, 0].shape),
+                parmat=self.sim.model.spatial_parameter_matrix,
+                mparams=self.prior.get_model_params(),
+                cparams=self.prior.get_coupling_params(),
+                **kwargs
+            )
 
-        return self.build_ifun(x_prev, dX)
+            # x_sim = pytensor.scan(
+            #     fn=self.scheme,
+            #     sequences=kwargs.get("sequence", None),
+            #     outputs_info=[x_init[-1]],
+            #     non_sequences=list(self.params.get_model_params().values()) + list(self.params.get_coupling_params().values()),
+            #     n_steps=self.n_steps
+            # )
+        
+        return x_sim
+
+    # def scheme(self, x_prev, *params):
+    #     state = pyt.zeros((self.sim.connectivity.horizon, self.sim.model.nvar, self.sim.connectivity.number_of_regions))
+    #     state = pyt.set_subtensor(state[0], x_prev)
+    #     state = pyt.transpose(state, axes=[1, 0, 2])
+    #
+    #     cX = pyt.zeros((self.sim.history.n_cvar, self.sim.history.n_node))
+    #     cX = self.cfun(cX, self.sim.connectivity.weights, state, self.sim.connectivity.delay_indices,
+    #                    **self.params.get_coupling_params())
+    #
+    #     dX = pyt.zeros((self.sim.model.nvar, self.sim.history.n_node))
+    #     dX = self.dfun(dX, x_prev, cX, self.sim.model.spatial_parameter_matrix, **self.params.get_model_params())
+    #
+    #     return self.build_ifun(x_prev, dX)
 
     def build_initial_conditions(self):
         # Get initial conditions from simulator.initial_conditions
@@ -110,31 +148,18 @@ class Pymc3ModelBuilder(StatisticalModel):
             return self.params.dict['x_init']
         return pyt.as_tensor_variable(self.sim.initial_conditions[:, :, :, 0], name="x_init")
 
-    def build_loop(self, x_init, **kwargs):
-
-        with self.model:
-            taps = list(-1 * np.arange(self.sim.connectivity.idelays.max() + 1) - 1)[::-1]
-            x_sim, updates = pytensor.scan(
-                fn=self.scheme,
-                sequences=kwargs.get("sequence", None),
-                outputs_info=[x_init[-1]],
-                non_sequences=list(self.params.get_model_params().values()) + list(self.params.get_coupling_params().values()),
-                n_steps=self.n_steps
-            )
-        return x_sim, updates
-
     def build_funs(self):
         self.dfun = self.build_dfun()
         self.cfun = self.build_cfun()
-        # self.ifun: Callable = self.build_ifun()
-        # self.mfun: Callable = self.build_mfun()
+        self.ifun = self.build_ifun()
+        # self.mfun: self.build_mfun()
 
     def compose_model(self):
 
         self.build_funs()
 
         with self.model:
-            x_sim, updates = self.build_loop(self.build_initial_conditions())
+            x_sim = self.build_sim(self.build_initial_conditions())
 
             if self.obs_fun:
                 x_hat = self.build_ofun(x_sim)
@@ -142,18 +167,18 @@ class Pymc3ModelBuilder(StatisticalModel):
                 x_hat = x_sim
 
             if self.obs is not None:
-                x_obs = pm.Normal(name="x_obs", mu=x_hat[:, self.sim.model.cvar, :], sigma=self.params.dict.get("observation_noise", 1.0),
+                x_obs = pm.Normal(name="x_obs", mu=x_hat[:, self.sim.model.cvar, 0, :], sigma=self.params.dict.get("observation_noise", 1.0),
                                   shape=self.obs.shape, observed=self.obs)
 
     def build(self):
-        return Pymc3Model(self.sim, self.params)
+        return PymcModel(self.sim, self.params)
 
 
-class DeterministicPymc3ModelBuilder(Pymc3ModelBuilder):
+class DeterministicPymcModelBuilder(PymcModelBuilder):
     pass
 
 
-class StochasticPymc3ModelBuilder(DeterministicPymc3ModelBuilder):
+class StochasticPymcModelBuilder(DeterministicPymcModelBuilder):
 
     def build_nfun(self):
         # TODO: Implement this with theano_backend for Additive white noise!:
@@ -172,6 +197,7 @@ class StochasticPymc3ModelBuilder(DeterministicPymc3ModelBuilder):
         #     """
         #     g_x = numpy.sqrt(2.0 * self.nsig)
         #     return g_x
+        
         with self.model:
             # nsig might be a parameter or to be taken from the simulator
             # TODO: broadcast for different shapes of nsig!!!
@@ -186,25 +212,25 @@ class StochasticPymc3ModelBuilder(DeterministicPymc3ModelBuilder):
 
         return dWt
 
-    # def build_funs(self):
-    #     super().build_funs()
-    #     # self.nfun: Callable = self.build_nfun()
+    def build_funs(self):
+        super().build_funs()
+        self.nfun = self.build_nfun()
 
-    def build_loop(self, x_init, **kwargs):
-        sequence = kwargs.pop("sequence", [])
-        sequence.append(self.build_nfun())
-        return super().build_loop(x_init, sequence=sequence, **kwargs)
+    def build_sim(self, x_init, dWt=None, **kwargs):
+        if dWt is None:
+            dWt = self.build_nfun()
+        return super().build_sim(x_init, noise=dWt, **kwargs)
 
-    def scheme(self, dWt, x_prev, *params):
-        return super().scheme(x_prev, *params) + dWt
+    # def scheme(self, dWt, x_prev, *params):
+    #     return super().scheme(x_prev, *params) + dWt
 
 
-class DefaultDeterministicPymc3ModelBuilder(DeterministicPymc3ModelBuilder):
+class DefaultDeterministicPymcModelBuilder(DeterministicPymcModelBuilder):
 
     def __init__(
             self,
             sim: Simulator,
-            params: Optional[Pymc3Prior] = None,
+            params: Optional[PymcPrior] = None,
             model: Optional[pm.Model] = None,
             observation: Optional[np.ndarray] = None,
             n_steps: Optional[int] = None
@@ -249,11 +275,11 @@ class DefaultDeterministicPymc3ModelBuilder(DeterministicPymc3ModelBuilder):
         return self.params
 
 
-class DefaultStochasticPymc3ModelBuilder(StochasticPymc3ModelBuilder, DefaultDeterministicPymc3ModelBuilder):
+class DefaultStochasticPymcModelBuilder(StochasticPymcModelBuilder, DefaultDeterministicPymcModelBuilder):
 
     def set_noise(self, def_std=0.1):
         with self.model:
-            nsig_star = pm.HalfNormal(name="nsig_star", sigma=1.0)
+            nsig_star = pm.Normal(name="nsig_star", mu=0.0, sigma=1.0)
             nsig = pm.Deterministic(name="nsig", var=self.sim.integrator.noise.nsig[0] * (1.0 + def_std * nsig_star))
             dWt_star = pm.Normal(name="dWt_star", mu=0.0, sigma=1.0, shape=(self.obs.shape[0], *self.sim.initial_conditions.shape[1:-1]))
 
