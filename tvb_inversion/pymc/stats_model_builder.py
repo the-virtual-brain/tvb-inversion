@@ -3,9 +3,9 @@ import pymc as pm
 import numpy as np
 import pytensor
 import pytensor.tensor as pyt
-from tvb_inversion.base.stats_model import StatisticalModel
+from tvb_inversion.base.gen_model import StatisticalModel
 from tvb_inversion.base.observation_models import linear
-from tvb_inversion.pymc.prior import PymcPrior
+from tvb_inversion.pymc.prior import PymcPriors, PymcPrior
 from tvb_inversion.pymc.stats_model import PymcModel
 from tvb.simulator.simulator import Simulator
 from tvb.simulator.backend.pytensor import PytensorBackend
@@ -16,7 +16,7 @@ class PymcModelBuilder(StatisticalModel):
     def __init__(
             self,
             sim: Simulator,
-            params: Optional[PymcPrior] = None,
+            params: Optional[PymcPriors] = None,
             model: Optional[pm.Model] = None,
             observation_fun: Optional[Callable] = None,
             observation: Optional[np.ndarray] = None,
@@ -43,14 +43,14 @@ class PymcModelBuilder(StatisticalModel):
         self.mfun: Optional[Callable] = None
 
     def configure(self):
-        assert isinstance(self.params, PymcPrior)
+        assert isinstance(self.params, PymcPriors)
         assert isinstance(self.model, pm.Model)
 
-    def _build_or_append_prior(self, names, dist):
+    def _build_or_append_prior(self, prior):
         if self.params:
-            self.params.append(names, dist)
+            self.params.append(prior)
         else:
-            self.params = PymcPrior(names=names, dist=dist, model=self.model)
+            self.params = prior
         return self.params
 
     def build_dfun(self):
@@ -265,13 +265,14 @@ class DefaultDeterministicPymcModelBuilder(DeterministicPymcModelBuilder):
         amplitude, offset, observation_noise = self.set_observation_model(def_std)
         return x_init, amplitude, offset, observation_noise
 
-    def set_default_prior(self, def_std=0.1):
+    def set_default_priors(self, def_std=0.1):
         x_init, amplitude, offset, observation_noise = self._set_default_priors(def_std)
         names = ["x_init",
                  "observation.amplitude", "observation.offset", "observation_noise"]
-        dist = [x_init,
+        dists = [x_init,
                 amplitude, offset, observation_noise]
-        self.params = self._build_or_append_prior(names, dist)
+        for name, dist in zip(names, dists):
+            self.params = self._build_or_append_prior(PymcPrior(self.model, name, dist))
         return self.params
 
 
@@ -290,11 +291,12 @@ class DefaultStochasticPymcModelBuilder(StochasticPymcModelBuilder, DefaultDeter
         nsig, dWt_star = self.set_noise(def_std)
         return x_init_offset, nsig, dWt_star, amplitude, offset, observation_noise
 
-    def set_default_prior(self, def_std=0.1):
+    def set_default_priors(self, def_std=0.1):
         x_init, nsig, dWt_star, amplitude, offset, observation_noise = self._set_default_priors(def_std)
         names = ["x_init", "integrator.noise.nsig", "dWt_star",
                  "observation.amplitude", "observation.offset", "observation_noise"]
-        dist = [x_init, nsig, dWt_star,
+        dists = [x_init, nsig, dWt_star,
                 amplitude, offset, observation_noise]
-        self.params = self._build_or_append_prior(names, dist)
+        for name, dist in zip(names, dists):
+            self.params = self._build_or_append_prior(PymcPrior(self.model, name, dist))
         return self.params

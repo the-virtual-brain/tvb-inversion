@@ -3,7 +3,7 @@ import numpy as np
 import itertools
 import pandas as pd
 
-from tvb_inversion.base.stats_model import StatisticalModel
+from tvb_inversion.base.gen_model import StatisticalModel
 # from tvb_inversion.logger.builder import get_logger
 from tvb_inversion.base.metrics import Metric
 from tvb_inversion.base.diagnostics import zscore, shrinkage

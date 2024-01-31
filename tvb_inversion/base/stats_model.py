@@ -1,21 +1,18 @@
 import numpy as np
-from tvb_inversion.base.prior import Prior
+from tvb_inversion.base.prior import Priors
+from gen_model import GenerativeModel
 from tvb_inversion.base.sim_seq import SimSeq
 from tvb.simulator.simulator import Simulator
 
 
-class StatisticalModel:
+class StatisticalModel(GenerativeModel):
 
     def __init__(
             self,
             sim: Simulator,
-            params: Prior
+            params: Priors
     ):
-        self.sim = sim
-        self.params = params
-
-    def observation_model(self):
-        pass
+        super(StatisticalModel, self).__init__(sim, params)
 
     def generate_sim_seq(self, num_samples: int):
         # This function supports only scalar params, for other scenarios construct the values array manually

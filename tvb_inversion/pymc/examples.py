@@ -71,7 +71,7 @@ def default_model_builders(
 
     model_builder = DefaultStochasticPymc3ModelBuilder(
         sim=sim, params=prior, observation=observation[:, :, :, 0])
-    model_builder.set_default_prior(def_std=def_std)
+    model_builder.set_default_priors(def_std=def_std)
     model_builder.compose_model()
     pymc_model = model_builder.build()
     pymc_estimator = EstimatorPYMC(stats_model=pymc_model)
