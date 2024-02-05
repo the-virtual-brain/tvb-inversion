@@ -1,4 +1,4 @@
-from tvb_inversion.base.prior import Parameters
+from tvb_inversion.base.parameter import Parameters
 from tvb.simulator.simulator import Simulator
 
 

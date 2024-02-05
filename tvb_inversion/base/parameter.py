@@ -7,7 +7,7 @@ class Parameter:
 
     # TODO: To eventually inherit from HasTraits
 
-    def __init__(self, name: str, shape: tuple=(1,),
+    def __init__(self, name: str, shape: tuple = (1,),
                  value=None, min=None, max=None,
                  inds=None):  # TODO: clarify possible formats for inds
         self.name = name
@@ -22,6 +22,9 @@ class Parameter:
             pass
             # TODO: find out if the indices shape corresponds to the shape
         # TODO: similarly for value, min and max, the shapes should be either the same or compatible
+
+    def configure(self):
+        self.assert_shapes()
 
 
 class Parameters:
@@ -50,7 +53,7 @@ class Parameters:
 
     def append(self, parameter):
         if isinstance(parameter, Parameter):
-            self.append_parameter(prior)
+            self.append_parameter(parameter)
         elif isinstance(parameter, Parameters):
             self.append_parameters(parameter)
         else:

@@ -10,7 +10,7 @@ class Pymc3Prior(Prior):
 
     def __init__(self, model: Model,
                  name: str,
-                 distribution,  # :List[Union[FreeRV, TransformedRV, DeterministicWrapper]])
+                 distribution,  # Union[FreeRV, TransformedRV, DeterministicWrapper]]
                  shape: tuple = (1,),
                  # Perhaps to be used as initial condition, and/or storing last sample drown?:
                  value=None,

@@ -1,4 +1,5 @@
 from typing import List
+import numpy
 from tvb_inversion.base.parameter import Parameter
 
 
